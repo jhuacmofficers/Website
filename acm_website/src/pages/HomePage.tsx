@@ -1,6 +1,6 @@
-import React from 'react';
-import { signOut } from 'firebase/auth';
+import React, { useState, useEffect } from 'react';
 import { auth } from '../firebase/config';
+import { onAuthStateChanged } from "firebase/auth";
 
 interface HomePageProps {
   navigateTo: (page: string, errorMessage?: string) => void;
@@ -8,14 +8,13 @@ interface HomePageProps {
 }
 
 const HomePage: React.FC<HomePageProps> = ({ navigateTo, error }) => {
-  function handleLogout() {
-    try {
-      signOut(auth);
-      navigateTo('login');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    onAuthStateChanged(auth, (user) => {
+      setIsLoggedIn(!!user);
+    });
+  }, []);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] p-8" style={{ position: 'relative', zIndex: 1 }}>
@@ -50,15 +49,9 @@ const HomePage: React.FC<HomePageProps> = ({ navigateTo, error }) => {
         </button>
         <button 
           className="px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-          onClick={() => navigateTo('login')}
+          onClick={() => navigateTo(isLoggedIn ? 'profile' : 'login')}
         >
-          Login
-        </button>
-        <button 
-          className="px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-          onClick={handleLogout}
-        >
-          Logout
+          {isLoggedIn ? 'Profile' : 'Login'}
         </button>
       </div>
       
