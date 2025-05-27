@@ -1,4 +1,5 @@
 import React from 'react';
+import './../styles/LoginPage.css';
 
 interface Props {
   onLogout: () => void;

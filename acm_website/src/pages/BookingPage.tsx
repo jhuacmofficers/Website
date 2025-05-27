@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import './LoginPage.css'; // Reuse the login page styling
+import './../styles/LoginPage.css'; // Reuse the login page styling
 import { auth } from '../firebase/config';
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, doc, getFirestore, setDoc, Timestamp, query, where, getDocs, getDoc } from "firebase/firestore";

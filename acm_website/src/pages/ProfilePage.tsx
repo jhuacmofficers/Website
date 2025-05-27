@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import './LoginPage.css';
+import './../styles/LoginPage.css';
 import { auth } from '../firebase/config';
 import { onAuthStateChanged, updatePassword, deleteUser, signOut } from "firebase/auth";
 import { collection, doc, getFirestore, getDoc, getDocs, query, where, deleteDoc, updateDoc } from "firebase/firestore";

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './../styles/LoginPage.css';
 
 interface EventOption {
   id: string;
