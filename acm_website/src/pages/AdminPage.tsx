@@ -5,6 +5,10 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, doc, getFirestore, getDocs, query, where, updateDoc, addDoc, Timestamp, orderBy, arrayUnion } from "firebase/firestore";
 import * as XLSX from 'xlsx';
 import { deleteUser } from '../api';
+import CreateEventForm from '../components/CreateEventForm';
+import MembersList from '../components/MembersList';
+import AttendanceUploadForm from '../components/AttendanceUploadForm';
+import AccountSection from '../components/AccountSection';
 
 interface AdminPageProps {
   navigateTo: (page: string, errorMessage?: string) => void;
@@ -35,19 +39,6 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
   const [members, setMembers] = useState<Member[]>([]);
   const [pastEvents, setPastEvents] = useState<Event[]>([]);
   
-  // Event form state
-  const [eventTitle, setEventTitle] = useState<string>('');
-  const [eventDescription, setEventDescription] = useState<string>('');
-  const [eventLocation, setEventLocation] = useState<string>('');
-  const [eventLink, setEventLink] = useState<string>('');
-  const [eventStartDate, setEventStartDate] = useState<string>('');
-  const [eventStartTime, setEventStartTime] = useState<string>('');
-  const [eventEndDate, setEventEndDate] = useState<string>('');
-  const [eventEndTime, setEventEndTime] = useState<string>('');
-  
-  // Attendance upload state
-  const [selectedEvent, setSelectedEvent] = useState<string>('');
-  const [attendanceFile, setAttendanceFile] = useState<File | null>(null);
 
   useEffect(() => {
     onAuthStateChanged(auth, async (user) => {
@@ -88,12 +79,20 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
     });
   }, [navigateTo]);
 
-  const handleCreateEvent = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateEvent = async (data: {
+    title: string;
+    description: string;
+    location: string;
+    link: string;
+    startDate: string;
+    startTime: string;
+    endDate: string;
+    endTime: string;
+  }) => {
     try {
       const db = getFirestore();
-      const startDateTime = new Date(`${eventStartDate}T${eventStartTime}`);
-      const endDateTime = new Date(`${eventEndDate}T${eventEndTime}`);
+      const startDateTime = new Date(`${data.startDate}T${data.startTime}`);
+      const endDateTime = new Date(`${data.endDate}T${data.endTime}`);
 
       if (endDateTime <= startDateTime) {
         alert('End time must be after start time');
@@ -101,25 +100,14 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
       }
 
       await addDoc(collection(db, "events"), {
-        name: eventTitle,
-        description: eventDescription,
-        location: eventLocation,
-        link: eventLink,
+        name: data.title,
+        description: data.description,
+        location: data.location,
+        link: data.link,
         start: Timestamp.fromDate(startDateTime),
         end: Timestamp.fromDate(endDateTime),
       });
-
-      // Reset form
-      setEventTitle('');
-      setEventDescription('');
-      setEventLocation('');
-      setEventLink('');
-      setEventStartDate('');
-      setEventStartTime('');
-      setEventEndDate('');
-      setEventEndTime('');
-
-      alert('Event created successfully!');
+      alert("Event created successfully!");
     } catch (error) {
       console.error('Error creating event:', error);
       alert('Failed to create event. Please try again.');
@@ -146,12 +134,7 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
     }
   };
 
-  const handleAttendanceUpload = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedEvent || !attendanceFile) {
-      alert('Please select an event and upload a file');
-      return;
-    }
+  const handleAttendanceUpload = async (eventId: string, file: File) => {
 
     try {
       const db = getFirestore();
@@ -184,7 +167,7 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
           const usersSnapshot = await getDocs(usersQuery);
 
           // Get the event details
-          const event = pastEvents.find(e => e.id === selectedEvent);
+          const event = pastEvents.find(e => e.id === eventId);
           if (!event) {
             throw new Error('Event not found');
           }
@@ -230,8 +213,6 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
           alert(`Successfully processed attendance for ${attendees.length} members`);
           
           // Reset form
-          setSelectedEvent('');
-          setAttendanceFile(null);
         } catch (error) {
           console.error('Error processing attendance:', error);
           alert(`Error processing attendance: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -242,7 +223,7 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
         throw new Error('Error reading file');
       };
 
-      reader.readAsArrayBuffer(attendanceFile);
+      reader.readAsArrayBuffer(file);
     } catch (error) {
       console.error('Error uploading attendance:', error);
       alert(`Error uploading attendance: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -276,300 +257,13 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
         padding: '20px'
       }}>
         {error && (
-          <div className="error-message">
-            {error}
-          </div>
+          <div className="error-message">{error}</div>
         )}
 
-        {/* Create Event Container */}
-        <div className="login-box" style={{ 
-          width: '100%',
-          backgroundColor: 'white',
-          borderRadius: '8px',
-          padding: '20px',
-          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-        }}>
-          <h2 style={{ marginBottom: '20px', color: '#495057', borderBottom: '2px solid #e9ecef', paddingBottom: '10px' }}>
-            Create New Event
-          </h2>
-          <form onSubmit={handleCreateEvent} style={{ display: 'grid', gap: '15px' }}>
-            <input
-              type="text"
-              placeholder="Event Title"
-              value={eventTitle}
-              onChange={(e) => setEventTitle(e.target.value)}
-              required
-              style={{
-                padding: '8px',
-                borderRadius: '4px',
-                border: '1px solid #ced4da',
-                fontSize: '1rem'
-              }}
-            />
-            <textarea
-              placeholder="Event Description"
-              value={eventDescription}
-              onChange={(e) => setEventDescription(e.target.value)}
-              required
-              style={{
-                padding: '8px',
-                borderRadius: '4px',
-                border: '1px solid #ced4da',
-                fontSize: '1rem',
-                minHeight: '100px',
-                resize: 'vertical'
-              }}
-            />
-            <input
-              type="text"
-              placeholder="Location"
-              value={eventLocation}
-              onChange={(e) => setEventLocation(e.target.value)}
-              required
-              style={{
-                padding: '8px',
-                borderRadius: '4px',
-                border: '1px solid #ced4da',
-                fontSize: '1rem'
-              }}
-            />
-            <input
-              type="url"
-              placeholder="Event Link (optional)"
-              value={eventLink}
-              onChange={(e) => setEventLink(e.target.value)}
-              style={{
-                padding: '8px',
-                borderRadius: '4px',
-                border: '1px solid #ced4da',
-                fontSize: '1rem'
-              }}
-            />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', color: '#495057' }}>Start Date</label>
-                <input
-                  type="date"
-                  value={eventStartDate}
-                  onChange={(e) => setEventStartDate(e.target.value)}
-                  required
-                  style={{
-                    padding: '2px',
-                    borderRadius: '4px',
-                    border: '1px solid #ced4da',
-                    fontSize: '1rem',
-                    width: '100%'
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', color: '#495057' }}>Start Time</label>
-                <input
-                  type="time"
-                  value={eventStartTime}
-                  onChange={(e) => setEventStartTime(e.target.value)}
-                  required
-                  style={{
-                    padding: '2px',
-                    borderRadius: '4px',
-                    border: '1px solid #ced4da',
-                    fontSize: '1rem',
-                    width: '100%'
-                  }}
-                />
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', color: '#495057' }}>End Date</label>
-                <input
-                  type="date"
-                  value={eventEndDate}
-                  onChange={(e) => setEventEndDate(e.target.value)}
-                  required
-                  style={{
-                    padding: '2px',
-                    borderRadius: '4px',
-                    border: '1px solid #ced4da',
-                    fontSize: '1rem',
-                    width: '100%'
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', color: '#495057' }}>End Time</label>
-                <input
-                  type="time"
-                  value={eventEndTime}
-                  onChange={(e) => setEventEndTime(e.target.value)}
-                  required
-                  style={{
-                    padding: '2px',
-                    borderRadius: '4px',
-                    border: '1px solid #ced4da',
-                    fontSize: '1rem',
-                    width: '100%'
-                  }}
-                />
-              </div>
-            </div>
-            <button 
-              type="submit"
-              className="login-button"
-              style={{ marginTop: '10px' }}
-            >
-              Create Event
-            </button>
-          </form>
-        </div>
-
-        {/* Members Container */}
-        <div className="login-box" style={{ 
-          width: '100%',
-          backgroundColor: 'white',
-          borderRadius: '8px',
-          padding: '20px',
-          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-        }}>
-          <h2 style={{ marginBottom: '20px', color: '#495057', borderBottom: '2px solid #e9ecef', paddingBottom: '10px' }}>
-            Manage Members
-          </h2>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid #dee2e6' }}>
-                  <th style={{ padding: '12px', textAlign: 'left', color: '#495057' }}>Email</th>
-                  <th style={{ padding: '12px', textAlign: 'left', color: '#495057' }}>Events Attended</th>
-                  <th style={{ padding: '12px', textAlign: 'center', color: '#495057' }}>Remove</th>
-                </tr>
-              </thead>
-              <tbody>
-                {members.map(member => (
-                  <tr key={member.uid} style={{ borderBottom: '1px solid #dee2e6' }}>
-                    <td style={{ padding: '12px', color: '#495057' }}>{member.email}</td>
-                    <td style={{ padding: '12px', color: '#495057' }}>{member.eventsAttended}</td>
-                    <td style={{ padding: '12px', textAlign: 'center' }}>
-                      <button
-                        onClick={() => handleRemoveMember(member.uid)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#dc3545',
-                          fontSize: '1.2rem',
-                          cursor: 'pointer',
-                          padding: '0 5px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: '24px',
-                          height: '24px',
-                          borderRadius: '50%',
-                          transition: 'background-color 0.2s',
-                          margin: '0 auto'
-                        }}
-                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#ffebee'}
-                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                      >
-                        ×
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Attendance Upload Container */}
-        <div className="login-box" style={{ 
-          width: '100%',
-          backgroundColor: 'white',
-          borderRadius: '8px',
-          padding: '20px',
-          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-        }}>
-          <h2 style={{ marginBottom: '20px', color: '#495057', borderBottom: '2px solid #e9ecef', paddingBottom: '10px' }}>
-            Upload Attendance
-          </h2>
-          <form onSubmit={handleAttendanceUpload} style={{ display: 'grid', gap: '15px' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '5px', color: '#495057' }}>Select Event</label>
-              <select
-                value={selectedEvent}
-                onChange={(e) => setSelectedEvent(e.target.value)}
-                required
-                style={{
-                  padding: '8px',
-                  borderRadius: '4px',
-                  border: '1px solid #ced4da',
-                  fontSize: '1rem',
-                  width: '100%',
-                  backgroundColor: 'white'
-                }}
-              >
-                <option value="">Select an event...</option>
-                {pastEvents.map(event => (
-                  <option key={event.id} value={event.id}>
-                    {event.name} ({event.date.toLocaleDateString()})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '5px', color: '#495057' }}>Upload Spreadsheet</label>
-              <input
-                type="file"
-                accept=".csv,.xlsx,.xls"
-                onChange={(e) => setAttendanceFile(e.target.files?.[0] || null)}
-                required
-                style={{
-                  padding: '8px',
-                  fontSize: '1rem',
-                  width: '100%'
-                }}
-              />
-            </div>
-            <button 
-              type="submit"
-              className="login-button"
-              style={{ marginTop: '10px' }}
-            >
-              Upload Attendance
-            </button>
-          </form>
-        </div>
-
-        {/* Logout Container */}
-        <div className="login-box" style={{ 
-          width: '100%',
-          backgroundColor: 'white',
-          borderRadius: '8px',
-          padding: '20px',
-          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-        }}>
-          <h2 style={{ marginBottom: '20px', color: '#495057', borderBottom: '2px solid #e9ecef', paddingBottom: '10px' }}>
-            Account
-          </h2>
-          <button 
-            onClick={handleLogout}
-            className="login-button"
-            style={{ 
-              backgroundColor: '#003366',
-              color: 'white',
-              border: 'none',
-              padding: '10px 20px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              width: '100%',
-              transition: 'background-color 0.2s'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#c82333'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#dc3545'}
-          >
-            Logout
-          </button>
-        </div>
+        <CreateEventForm onCreate={handleCreateEvent} />
+        <MembersList members={members} onRemove={handleRemoveMember} />
+        <AttendanceUploadForm events={pastEvents} onUpload={handleAttendanceUpload} />
+        <AccountSection onLogout={handleLogout} />
       </div>
 
       <button 
