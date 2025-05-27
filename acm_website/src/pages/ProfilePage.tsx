@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import './LoginPage.css';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { auth } from '../firebase/config';
-import { onAuthStateChanged, updatePassword, deleteUser, signOut } from "firebase/auth";
-import { collection, doc, getFirestore, getDoc, getDocs, query, where, deleteDoc, updateDoc } from "firebase/firestore";
+import { updatePassword, deleteUser, signOut } from 'firebase/auth';
+import { collection, doc, getFirestore, getDoc, getDocs, query, where, deleteDoc, updateDoc } from 'firebase/firestore';
+import { useAuth } from '../components/AuthProvider';
 
-interface ProfilePageProps {
-  navigateTo: (page: string, errorMessage?: string) => void;
-  error?: string;
-}
 
 interface Booking {
   id: string;
@@ -27,7 +25,11 @@ interface FirestoreEvent {
   date: { toDate: () => Date };
 }
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ navigateTo, error }) => {
+const ProfilePage: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
+  const error = (location.state as { message?: string })?.message;
   const [email, setEmail] = useState<string>('');
   const [isMember, setIsMember] = useState<boolean>(false);
   const [isOnMailingList, setIsOnMailingList] = useState<boolean>(false);
@@ -44,22 +46,20 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ navigateTo, error }) => {
   const [memberSuccess, setMemberSuccess] = useState<string>('');
 
   useEffect(() => {
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setEmail(user.email || '');
-        // Fetch user data from Firestore
-        const db = getFirestore();
-        const userDoc = await getDoc(doc(db, "users", user.uid));
+    if (user === undefined) return;
+    if (user) {
+      setEmail(user.email || '');
+      const db = getFirestore();
+      getDoc(doc(db, 'users', user.uid)).then(async (userDoc) => {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           setIsMember(userData.isMember || false);
           setIsOnMailingList(userData.isOnMailingList || false);
         }
 
-        // Fetch bookings
         const bookingsQuery = query(
-          collection(db, "bookings"),
-          where("UID", "==", user.uid)
+          collection(db, 'bookings'),
+          where('UID', '==', user.uid)
         );
         const bookingsSnapshot = await getDocs(bookingsQuery);
         const now = new Date();
@@ -68,38 +68,34 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ navigateTo, error }) => {
           start: doc.data().start.toDate(),
           end: doc.data().end.toDate()
         }));
-        
+
         setUpcomingBookings(bookings.filter(booking => booking.start > now));
         setPastBookings(bookings.filter(booking => booking.start <= now));
 
-        // Implement events fetching logic
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          // get events attended
           const attended: Event[] = userData.eventsAttended.map((event: FirestoreEvent) => ({
             id: event.eventID,
             title: event.name,
             date: event.date.toDate(),
           }));
 
-          // get events registered
           const registered: Event[] = userData.eventsRegistered.map((event: FirestoreEvent) => ({
             id: event.eventID,
             title: event.name,
             date: event.date.toDate(),
           }));
 
-          // determine upcoming and past events
           setUpcomingEvents(registered.filter(event => event.date > now));
           setPastEvents(attended.filter(event => event.date <= now));
           setEventsAttended(attended.length);
         }
+      });
 
-      } else {
-        navigateTo('login', 'Please log in to access your profile');
-      }
-    });
-  }, [navigateTo]);
+    } else {
+      navigate('/login', { state: { message: 'Please log in to access your profile', from: location } });
+    }
+  }, [user, navigate, location]);
 
   const handlePasswordChange = async () => {
     if (newPassword !== confirmPassword) {
@@ -139,7 +135,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ navigateTo, error }) => {
           });
           // Delete the user account
           await deleteUser(user);
-          navigateTo('home');
+          navigate('/');
         }
       } catch (error) {
         console.error('Error deleting account:', error);
@@ -150,7 +146,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ navigateTo, error }) => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      navigateTo('home');
+      navigate('/');
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -553,9 +549,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ navigateTo, error }) => {
         </div>
       )}
 
-      <button 
-        className="home-button" 
-        onClick={() => navigateTo('home')}
+      <button
+        className="home-button"
+        onClick={() => navigate('/')}
         style={{
           position: 'fixed',
           bottom: '20px',

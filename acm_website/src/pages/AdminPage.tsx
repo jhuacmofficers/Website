@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import './LoginPage.css';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { auth } from '../firebase/config';
-import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, doc, getFirestore, getDocs, query, where, updateDoc, addDoc, Timestamp, orderBy, arrayUnion } from "firebase/firestore";
+import { signOut } from 'firebase/auth';
+import { collection, doc, getFirestore, getDocs, query, where, updateDoc, addDoc, Timestamp, orderBy, arrayUnion } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 import { deleteUser } from '../api';
+import { useAuth } from '../components/AuthProvider';
 
-interface AdminPageProps {
-  navigateTo: (page: string, errorMessage?: string) => void;
-  error?: string;
-}
+
 
 interface Event {
   id: string;
@@ -30,7 +29,11 @@ interface SpreadsheetRow {
   [key: string]: unknown;
 }
 
-const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
+const AdminPage: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
+  const error = (location.state as { message?: string })?.message;
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [pastEvents, setPastEvents] = useState<Event[]>([]);
@@ -50,17 +53,17 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
   const [attendanceFile, setAttendanceFile] = useState<File | null>(null);
 
   useEffect(() => {
-    onAuthStateChanged(auth, async (user) => {
+    const load = async () => {
+      if (user === undefined) return;
       if (user) {
-        if (user.email !== "jhuacmweb@gmail.com") {
-          navigateTo('home', 'You do not have permission to access the admin page');
+        if (user.email !== 'jhuacmweb@gmail.com') {
+          navigate('/', { state: { message: 'You do not have permission to access the admin page' } });
           return;
         }
         setIsAdmin(true);
         const db = getFirestore();
 
-        // Fetch members
-        const membersQuery = query(collection(db, "users"), where("isMember", "==", true));
+        const membersQuery = query(collection(db, 'users'), where('isMember', '==', true));
         const membersSnapshot = await getDocs(membersQuery);
         const membersData: Member[] = membersSnapshot.docs.map(doc => ({
           uid: doc.id,
@@ -69,24 +72,23 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
         }));
         setMembers(membersData);
 
-        // Fetch past events
-        const eventsQuery = query(collection(db, "events"), where("end", "<", Timestamp.now()), orderBy("start", "desc"));
+        const eventsQuery = query(collection(db, 'events'), where('end', '<', Timestamp.now()), orderBy('start', 'desc'));
         const eventsSnapshot = await getDocs(eventsQuery);
-        const events: Event[] = eventsSnapshot.docs
-          .map(doc => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              name: data.name,
-              date: data.start.toDate(),
-            };
-          });
+        const events: Event[] = eventsSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            name: data.name,
+            date: data.start.toDate(),
+          };
+        });
         setPastEvents(events);
       } else {
-        navigateTo('login', 'Please log in to access the admin page');
+        navigate('/login', { state: { message: 'Please log in to access the admin page', from: location } });
       }
-    });
-  }, [navigateTo]);
+    };
+    void load();
+  }, [user, navigate, location]);
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -252,7 +254,7 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      navigateTo('login', 'You have been logged out');
+      navigate('/login', { state: { message: 'You have been logged out' } });
     } catch (error) {
       console.error('Error signing out:', error);
       alert('Failed to log out. Please try again.');
@@ -572,9 +574,9 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
         </div>
       </div>
 
-      <button 
-        className="home-button" 
-        onClick={() => navigateTo('home')}
+      <button
+        className="home-button"
+        onClick={() => navigate('/')}
         style={{
           position: 'fixed',
           bottom: '20px',

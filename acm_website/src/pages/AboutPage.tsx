@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import placeholderImage from '../assets/depositphotos_104564156-stock-illustration-male-user-icon.jpg';
 import miseokImage from '../assets/alumni/miseok kim.jpg';
 import juliaImage from '../assets/alumni/julia bian.jpeg';
@@ -6,10 +7,7 @@ import nishImage from '../assets/alumni/nish.jpeg';
 import chaseImage from '../assets/alumni/chase feng.jpeg';
 import '../styles/FlipCard.css';
 
-interface AboutPageProps {
-  navigateTo: (page: string, errorMessage?: string) => void;
-  error?: string;
-}
+
 
 interface PersonData {
   name: string;
@@ -19,7 +17,10 @@ interface PersonData {
   imagePath?: string;
 }
 
-const AboutPage: React.FC<AboutPageProps> = ({ navigateTo, error }) => {
+const AboutPage: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const error = (location.state as { message?: string })?.message;
   // State to track which cards are flipped
   const [flippedCards, setFlippedCards] = useState<number[]>([]);
   const [flippedAlumniCards, setFlippedAlumniCards] = useState<number[]>([]);
@@ -271,10 +272,10 @@ const AboutPage: React.FC<AboutPageProps> = ({ navigateTo, error }) => {
         ))}
       </div>
       
-      <button className="home-button" onClick={() => navigateTo('home')}>Back to Home</button>
+      <button className="home-button" onClick={() => navigate('/')}>Back to Home</button>
       
-      <div 
-        onClick={() => navigateTo('credits')}
+      <div
+        onClick={() => navigate('/credits')}
         style={{ 
           fontSize: '0.8rem', 
           textAlign: 'center', 

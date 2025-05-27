@@ -1,11 +1,7 @@
 import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import placeholderImage from '../assets/depositphotos_104564156-stock-illustration-male-user-icon.jpg';
 import '../styles/FlipCard.css';
-
-interface CreditsPageProps {
-  navigateTo: (page: string, errorMessage?: string) => void;
-  error?: string;
-}
 
 interface ContributorData {
   name: string;
@@ -15,7 +11,10 @@ interface ContributorData {
   imagePath?: string;
 }
 
-const CreditsPage: React.FC<CreditsPageProps> = ({ navigateTo, error }) => {
+const CreditsPage: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const error = (location.state as { message?: string })?.message;
   // State to track which cards are flipped
   const [flippedCards, setFlippedCards] = useState<number[]>([]);
 
@@ -147,9 +146,9 @@ const CreditsPage: React.FC<CreditsPageProps> = ({ navigateTo, error }) => {
         </div>
       </div>
       
-      <button 
-        className="home-button" 
-        onClick={() => navigateTo('home')}
+      <button
+        className="home-button"
+        onClick={() => navigate('/')}
         style={{ 
           padding: '8px 16px',
           backgroundColor: '#3366cc',
@@ -165,8 +164,8 @@ const CreditsPage: React.FC<CreditsPageProps> = ({ navigateTo, error }) => {
         Back to Home
       </button>
       
-      <div 
-        onClick={() => navigateTo('credits')}
+      <div
+        onClick={() => navigate('/credits')}
         style={{ 
           fontSize: '0.8rem', 
           textAlign: 'center', 

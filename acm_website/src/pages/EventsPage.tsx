@@ -1,11 +1,10 @@
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
-interface EventsPageProps {
-  navigateTo: (page: string, errorMessage?: string) => void;
-  error?: string;
-}
-
-const EventsPage: React.FC<EventsPageProps> = ({ navigateTo, error }) => {
+const EventsPage: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const error = (location.state as { message?: string })?.message;
   // Sample events data - in a real app, this would come from an API or database
   const events = [
     {
@@ -57,10 +56,10 @@ const EventsPage: React.FC<EventsPageProps> = ({ navigateTo, error }) => {
           </div>
         ))}
       </div>
-      <button className="home-button" onClick={() => navigateTo('home')} style={{ position: 'relative', zIndex: 2 }}>Back to Home</button>
+      <button className="home-button" onClick={() => navigate('/')} style={{ position: 'relative', zIndex: 2 }}>Back to Home</button>
       
-      <div 
-        onClick={() => navigateTo('credits')}
+      <div
+        onClick={() => navigate('/credits')}
         style={{ 
           fontSize: '0.8rem', 
           textAlign: 'center', 

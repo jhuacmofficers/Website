@@ -1,18 +1,18 @@
-import React, { useState } from 'react';
-import './LoginPage.css'; // Import the CSS file for styling
+import React, { useState, useEffect } from 'react';
+import './LoginPage.css';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { auth } from '../firebase/config';
-import { createUserWithEmailAndPassword,
-         onAuthStateChanged,
-         sendPasswordResetEmail,
-         signInWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
+import { useAuth } from '../components/AuthProvider';
 
 
-interface LoginPageProps {
-  navigateTo: (page: string, errorMessage?: string) => void;
-  error?: string;
-}
-
-const LoginPage: React.FC<LoginPageProps> = ({ navigateTo, error }) => {
+const LoginPage: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
+  const state = location.state as { from?: { pathname: string }; message?: string } | null;
+  const from = state?.from?.pathname || '/';
+  const initialMessage = state?.message;
 
   const [userCredentials, setUserCredentials] = useState({email: '', password: ''});
   const [localError, setLocalError] = useState('');
@@ -20,15 +20,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ navigateTo, error }) => {
     setUserCredentials({...userCredentials, [e.target.name]: e.target.value});
   };
 
-  onAuthStateChanged(auth, (user) => {
+  const [localError, setLocalError] = useState(initialMessage || '');
+
+  useEffect(() => {
     if (user) {
-      if (error?.includes('booking')) {
-        navigateTo('booking');
-      } else {
-        navigateTo('home');
-      }
+      navigate(from, { replace: true });
     }
-  });
+  }, [user, navigate, from]);
 
   function handleSignup(e: React.FormEvent) {
     e.preventDefault();
@@ -92,9 +90,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ navigateTo, error }) => {
       <div className="login-container">
         <div className="login-box">
           <form onSubmit={handleLogin}>
-            {(error || localError) && (
+            {localError && (
               <div className="error-message">
-                {error || localError}
+                {localError}
               </div>
             )}
             <div className="input-group">
@@ -127,7 +125,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ navigateTo, error }) => {
           </form>
         </div>
       </div>
-      <button className="home-button" onClick={() => navigateTo('home')}>Back to Home</button>
+      <button className="home-button" onClick={() => navigate('/')}>Back to Home</button>
     </div>
   );
 };

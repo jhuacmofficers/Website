@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import './LoginPage.css'; // Reuse the login page styling
+import './LoginPage.css';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { auth } from '../firebase/config';
-import { onAuthStateChanged } from "firebase/auth";
-import { collection, doc, getFirestore, setDoc, Timestamp, query, where, getDocs, getDoc } from "firebase/firestore";
+import { useAuth } from '../components/AuthProvider';
+import { collection, doc, getFirestore, setDoc, Timestamp, query, where, getDocs, getDoc } from 'firebase/firestore';
 import { initializeApp } from 'firebase/app';
 
 const firebaseConfig = {
@@ -17,10 +18,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-interface BookingPageProps {
-  navigateTo: (page: string, errorMessage?: string) => void;
-  error?: string;
-}
+
 
 interface TimeSlot {
   hour: number;
@@ -28,7 +26,11 @@ interface TimeSlot {
   label: string;
 }
 
-const BookingPage: React.FC<BookingPageProps> = ({ navigateTo, error }) => {
+const BookingPage: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
+  const error = (location.state as { message?: string })?.message;
   const [startTime, setStartTime] = useState<Date>(() => {
     const date = new Date();
     date.setHours(9, 0, 0, 0);
@@ -49,20 +51,19 @@ const BookingPage: React.FC<BookingPageProps> = ({ navigateTo, error }) => {
 
   // Initial auth check
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
+    if (user === undefined) return;
+    if (user) {
+      getDoc(doc(db, 'users', user.uid)).then((userDoc) => {
         if (userDoc.exists()) {
           setIsMember(userDoc.data().isMember || false);
         } else {
           setIsMember(false);
         }
-      } else {
-        navigateTo('login', 'Please log in to access the booking page');
-      }
-    });
-    return unsubscribe;
-  }, [navigateTo]);
+      });
+    } else {
+      navigate('/login', { state: { message: 'Please log in to access the booking page', from: location } });
+    }
+  }, [user, navigate, location]);
 
   // Generate time slots for dropdowns
   useEffect(() => {
@@ -370,7 +371,7 @@ const BookingPage: React.FC<BookingPageProps> = ({ navigateTo, error }) => {
                     {showMembershipPrompt && (
                       <button
                         className="login-button"
-                        onClick={() => navigateTo('profile')}
+                        onClick={() => navigate('/profile')}
                         style={{ alignSelf: 'flex-start' }}
                       >
                         Go to Profile
@@ -503,7 +504,7 @@ const BookingPage: React.FC<BookingPageProps> = ({ navigateTo, error }) => {
           </button>
         </div>
       </div>
-      <button className="home-button" onClick={() => navigateTo('home')}>Back to Home</button>
+      <button className="home-button" onClick={() => navigate('/')}>Back to Home</button>
     </div>
   );
 };

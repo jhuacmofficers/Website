@@ -1,22 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { auth } from '../firebase/config';
-import { onAuthStateChanged } from "firebase/auth";
+import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../components/AuthProvider';
 
-interface HomePageProps {
-  navigateTo: (page: string, errorMessage?: string) => void;
-  error?: string;
-}
-
-const HomePage: React.FC<HomePageProps> = ({ navigateTo, error }) => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    onAuthStateChanged(auth, (user) => {
-      setIsLoggedIn(!!user);
-      setIsAdmin(user?.email === "jhuacmweb@gmail.com");
-    });
-  }, []);
+const HomePage: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
+  const error = (location.state as { message?: string })?.message;
+  const isAdmin = user?.email === 'jhuacmweb@gmail.com';
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] p-8" style={{ position: 'relative', zIndex: 1 }}>
@@ -31,34 +22,34 @@ const HomePage: React.FC<HomePageProps> = ({ navigateTo, error }) => {
       <h1 className="text-4xl font-bold mb-4 text-gray-800" style={{ position: 'relative', zIndex: 2 }}>Welcome to JHU ACM</h1>
       <p className="text-xl mb-8 text-gray-600" style={{ position: 'relative', zIndex: 2 }}>Association for Computing Machinery</p>
       <div className="flex gap-4" style={{ position: 'relative', zIndex: 2 }}>
-        <button 
+        <button
           className="px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-          onClick={() => navigateTo('about')}
+          onClick={() => navigate('/about')}
         >
           About Us
         </button>
-        <button 
+        <button
           className="px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-          onClick={() => navigateTo('events')}
+          onClick={() => navigate('/events')}
         >
           Events
         </button>
-        <button 
+        <button
           className="px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-          onClick={() => navigateTo('booking')}
+          onClick={() => navigate('/booking')}
         >
           Book Lounge
         </button>
-        <button 
+        <button
           className="px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-          onClick={() => navigateTo(isAdmin ? 'admin' : isLoggedIn ? 'profile' : 'login')}
+          onClick={() => navigate(isAdmin ? '/admin' : user ? '/profile' : '/login')}
         >
-          {isAdmin ? 'Admin' : isLoggedIn ? 'Profile' : 'Login'}
+          {isAdmin ? 'Admin' : user ? 'Profile' : 'Login'}
         </button>
       </div>
       
-      <div 
-        onClick={() => navigateTo('credits')}
+      <div
+        onClick={() => navigate('/credits')}
         style={{ 
           fontSize: '0.8rem', 
           textAlign: 'center', 
