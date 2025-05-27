@@ -5,6 +5,7 @@ import juliaImage from '../assets/alumni/julia bian.jpeg';
 import nishImage from '../assets/alumni/nish.jpeg';
 import chaseImage from '../assets/alumni/chase feng.jpeg';
 import '../styles/FlipCard.css';
+import '../styles/AboutPage.css';
 
 interface AboutPageProps {
   navigateTo: (page: string, errorMessage?: string) => void;
@@ -149,38 +150,31 @@ const AboutPage: React.FC<AboutPageProps> = ({ navigateTo, error }) => {
   ];
 
   return (
-    <div className="about-container" style={{ position: 'relative', zIndex: 1 }}>
+    <div className="about-container relative-z-1">
       {error && (
             <div className="error-message">
               {error}
             </div>
           )}
-      <div className="about-background" style={{ zIndex: -1 }}></div>
-      <h1 className="about-title" style={{ position: 'relative', zIndex: 2, color: 'white' }}>About Us</h1>
+      <div className="about-background about-background-low"></div>
+      <h1 className="about-title relative-z-2 text-white">About Us</h1>
       
-      <div className="about-content" style={{ position: 'relative', zIndex: 2 }}>
-        <p style={{ color: 'white' }}>
+      <div className="about-content relative-z-2">
+        <p className="text-white">
           We are a student organization of the Johns Hopkins University dedicated to furthering the knowledge and advancement of computers and 
           information technology through the free exchange of ideas and information. As a chapter of the oldest computing society in the world, the JHU ACM 
           is a place for diverse backgrounds and interests, and serves the JHU community as a whole. During the semester, the ACM has weekly meetings in 
-          Malone announced via email and posted on our <a href="#" className="link" style={{ color: 'white', textDecoration: 'underline' }}>Facebook</a> page and the <a href="#" className="link" style={{ color: 'white', textDecoration: 'underline' }}>Events</a> section of this website.
+          Malone announced via email and posted on our <a href="#" className="link text-white underline">Facebook</a> page and the <a href="#" className="link text-white underline">Events</a> section of this website.
         </p>
       </div>
       
-      <h2 className="leadership-title" style={{ position: 'relative', zIndex: 2, color: 'white' }}>Officers</h2>
-      
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(4, 1fr)', 
-        gap: '20px', 
-        margin: '30px 0' 
-      }}>
+      <h2 className="leadership-title relative-z-2 text-white">Officers</h2>
+      <div className="card-grid">
         {leadershipData.map((leader, index) => (
-          <div 
-            key={index} 
-            className={`flip-card ${flippedCards.includes(index) ? 'flipped' : ''}`}
+          <div
+            key={index}
+            className={`flip-card ${flippedCards.includes(index) ? 'flipped' : ''} cursor-pointer`}
             onClick={() => toggleFlip(index)}
-            style={{ cursor: 'pointer' }}
           >
             <div className="flip-card-inner">
               <div className="flip-card-front">
@@ -192,24 +186,16 @@ const AboutPage: React.FC<AboutPageProps> = ({ navigateTo, error }) => {
                   }}
                 />
               </div>
-              <div className="flip-card-back" style={{ color: 'white' }}>
-                <h3 style={{ margin: '0 0 5px 0', fontSize: '1rem', color: 'white' }}>{leader.name}</h3>
-                <h4 style={{ margin: '0 0 5px 0', fontWeight: 'normal', fontSize: '0.9rem', color: 'white' }}>{leader.role}</h4>
-                <p style={{ fontSize: '0.8rem', margin: '0 0 8px 0', color: 'white' }}>{leader.bio}</p>
-                <a 
-                  href={leader.linkedin} 
-                  target="_blank" 
+              <div className="flip-card-back">
+                <h3 className="m-0 mb-[5px] text-[1rem] text-white">{leader.name}</h3>
+                <h4 className="m-0 mb-[5px] font-normal text-[0.9rem] text-white">{leader.role}</h4>
+                <p className="text-[0.8rem] m-0 mb-2 text-white">{leader.bio}</p>
+                <a
+                  href={leader.linkedin}
+                  target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  style={{
-                    color: '#0077b5',
-                    textDecoration: 'none',
-                    fontSize: '0.8rem',
-                    backgroundColor: 'white',
-                    padding: '2px 8px',
-                    borderRadius: '4px',
-                    display: 'inline-block'
-                  }}
+                  className="linkedin-link"
                 >
                   LinkedIn
                 </a>
@@ -219,20 +205,13 @@ const AboutPage: React.FC<AboutPageProps> = ({ navigateTo, error }) => {
         ))}
       </div>
       
-      <h2 className="alumni-title" style={{ color: 'white', marginTop: '40px' }}>Alumni</h2>
-      
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(4, 1fr)', 
-        gap: '20px', 
-        margin: '30px 0' 
-      }}>
+      <h2 className="alumni-title text-white mt-[40px]">Alumni</h2>
+      <div className="card-grid">
         {alumniData.map((alumni, index) => (
-          <div 
-            key={index} 
-            className={`flip-card ${flippedAlumniCards.includes(index) ? 'flipped' : ''}`}
+          <div
+            key={index}
+            className={`flip-card ${flippedAlumniCards.includes(index) ? 'flipped' : ''} cursor-pointer`}
             onClick={() => toggleAlumniFlip(index)}
-            style={{ cursor: 'pointer' }}
           >
             <div className="flip-card-inner">
               <div className="flip-card-front">
@@ -244,24 +223,16 @@ const AboutPage: React.FC<AboutPageProps> = ({ navigateTo, error }) => {
                   }}
                 />
               </div>
-              <div className="flip-card-back" style={{ color: 'white' }}>
-                <h3 style={{ margin: '0 0 5px 0', fontSize: '1rem', color: 'white' }}>{alumni.name}</h3>
-                <h4 style={{ margin: '0 0 5px 0', fontWeight: 'normal', fontSize: '0.9rem', color: 'white' }}>{alumni.role}</h4>
-                <p style={{ fontSize: '0.8rem', margin: '0 0 8px 0', color: 'white' }}>{alumni.bio}</p>
-                <a 
-                  href={alumni.linkedin} 
-                  target="_blank" 
+              <div className="flip-card-back">
+                <h3 className="m-0 mb-[5px] text-[1rem] text-white">{alumni.name}</h3>
+                <h4 className="m-0 mb-[5px] font-normal text-[0.9rem] text-white">{alumni.role}</h4>
+                <p className="text-[0.8rem] m-0 mb-2 text-white">{alumni.bio}</p>
+                <a
+                  href={alumni.linkedin}
+                  target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  style={{
-                    color: '#0077b5',
-                    textDecoration: 'none',
-                    fontSize: '0.8rem',
-                    backgroundColor: 'white',
-                    padding: '2px 8px',
-                    borderRadius: '4px',
-                    display: 'inline-block'
-                  }}
+                  className="linkedin-link"
                 >
                   LinkedIn
                 </a>
@@ -273,22 +244,9 @@ const AboutPage: React.FC<AboutPageProps> = ({ navigateTo, error }) => {
       
       <button className="home-button" onClick={() => navigateTo('home')}>Back to Home</button>
       
-      <div 
+      <div
         onClick={() => navigateTo('credits')}
-        style={{ 
-          fontSize: '0.8rem', 
-          textAlign: 'center', 
-          position: 'fixed',
-          bottom: '0',
-          left: '0',
-          right: '0',
-          color: 'white',
-          opacity: 0.8,
-          cursor: 'pointer',
-          backgroundColor: 'rgba(50, 50, 50, 0.5)',
-          padding: '8px 0',
-          backdropFilter: 'blur(2px)'
-        }}
+        className="credits-footer"
       >
         made with lots of ❤️ @JHU ACM
       </div>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import './App.css';
+import './styles/Common.css';
 import HomePage from './pages/HomePage';
 import AboutPage from './pages/AboutPage';
 import EventsPage from './pages/EventsPage';

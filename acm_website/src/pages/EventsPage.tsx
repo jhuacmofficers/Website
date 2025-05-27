@@ -1,4 +1,5 @@
 import React from 'react';
+import '../styles/EventsPage.css';
 
 interface EventsPageProps {
   navigateTo: (page: string, errorMessage?: string) => void;
@@ -35,17 +36,17 @@ const EventsPage: React.FC<EventsPageProps> = ({ navigateTo, error }) => {
   ];
 
   return (
-    <div className="events-container" style={{ position: 'relative', zIndex: 1 }}>
-      <div className="about-background" style={{ zIndex: -1 }}></div>
+    <div className="events-container relative-z-1">
+      <div className="about-background about-background-low"></div>
       {error && (
-        <div className="error-message" style={{ position: 'relative', zIndex: 2 }}>
+        <div className="error-message relative-z-2">
           {error}
         </div>
       )}
-      <h1 className="events-title" style={{ position: 'relative', zIndex: 2 }}>Upcoming Events</h1>
-      <div className="events-list" style={{ position: 'relative', zIndex: 2 }}>
+      <h1 className="events-title relative-z-2">Upcoming Events</h1>
+      <div className="events-list relative-z-2">
         {events.map(event => (
-          <div key={event.id} className="event-card" style={{ position: 'relative', zIndex: 2 }}>
+          <div key={event.id} className="event-card relative-z-2">
             <h2 className="event-title">{event.title}</h2>
             <div className="event-details">
               <p><strong>Date:</strong> {event.date}</p>
@@ -57,25 +58,11 @@ const EventsPage: React.FC<EventsPageProps> = ({ navigateTo, error }) => {
           </div>
         ))}
       </div>
-      <button className="home-button" onClick={() => navigateTo('home')} style={{ position: 'relative', zIndex: 2 }}>Back to Home</button>
+      <button className="home-button relative-z-2" onClick={() => navigateTo('home')}>Back to Home</button>
       
-      <div 
+      <div
         onClick={() => navigateTo('credits')}
-        style={{ 
-          fontSize: '0.8rem', 
-          textAlign: 'center', 
-          position: 'fixed',
-          bottom: '0',
-          left: '0',
-          right: '0',
-          color: 'white',
-          opacity: 0.8,
-          cursor: 'pointer',
-          backgroundColor: 'rgba(50, 50, 50, 0.5)',
-          padding: '8px 0',
-          backdropFilter: 'blur(2px)',
-          zIndex: 2
-        }}
+        className="credits-footer"
       >
         Made with lots of ❤️ by JHU ACM
       </div>

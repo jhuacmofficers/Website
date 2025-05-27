@@ -40,29 +40,6 @@
   background-color: #002244;
 }
 
-.error-message {
-  color: red;
-  font-size: 0.875rem;
-  margin-bottom: 1rem;
-  width: 100%;
-  text-align: center;
-}
-
-.home-button {
-  display: block;
-  margin: 1rem auto;
-  padding: 0.5rem 1rem;
-  background-color: #003366;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-.home-button:hover {
-  background-color: #002244;
-}
 
 .home-fixed {
   position: fixed;
