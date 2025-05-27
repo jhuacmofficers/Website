@@ -8,6 +8,7 @@ import { auth } from '../firebase/config';
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, doc, getFirestore, getDocs, query, where, updateDoc, addDoc, Timestamp, orderBy, arrayUnion } from "firebase/firestore";
 import * as XLSX from 'xlsx';
+import Navbar from '../components/Navbar';
 import { deleteUser } from '../api';
 
 interface AdminPageProps {
@@ -277,7 +278,9 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
   }
 
   return (
-    <div className="login-page">
+    <>
+      <Navbar navigateTo={navigateTo} />
+      <div className="login-page">
       <div className="about-background" style={{ zIndex: -1 }}></div>
       <div className="login-container">
         {error && (
@@ -326,13 +329,8 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
         <Account handleLogout={handleLogout} />
       </div>
 
-      <button
-        className="home-button home-fixed"
-        onClick={() => navigateTo('home')}
-      >
-        Back to Home
-      </button>
     </div>
+    </>
   );
 };
 

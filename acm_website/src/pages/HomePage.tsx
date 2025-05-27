@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { auth } from '../firebase/config';
-import { onAuthStateChanged } from "firebase/auth";
+import React from 'react';
+import Navbar from '../components/Navbar';
 
 interface HomePageProps {
   navigateTo: (page: string, errorMessage?: string) => void;
@@ -8,18 +7,12 @@ interface HomePageProps {
 }
 
 const HomePage: React.FC<HomePageProps> = ({ navigateTo, error }) => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
 
-  useEffect(() => {
-    onAuthStateChanged(auth, (user) => {
-      setIsLoggedIn(!!user);
-      setIsAdmin(user?.email === "jhuacmweb@gmail.com");
-    });
-  }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] p-8" style={{ position: 'relative', zIndex: 1 }}>
+    <>
+      <Navbar navigateTo={navigateTo} />
+      <div className="flex flex-col items-center justify-center min-h-[70vh] p-8" style={{ position: 'relative', zIndex: 1 }}>
       <div className="about-background" style={{ zIndex: -1 }}></div>
       
       {error && (
@@ -30,31 +23,6 @@ const HomePage: React.FC<HomePageProps> = ({ navigateTo, error }) => {
       
       <h1 className="text-4xl font-bold mb-4 text-gray-800" style={{ position: 'relative', zIndex: 2 }}>Welcome to JHU ACM</h1>
       <p className="text-xl mb-8 text-gray-600" style={{ position: 'relative', zIndex: 2 }}>Association for Computing Machinery</p>
-      <div className="flex gap-4" style={{ position: 'relative', zIndex: 2 }}>
-        <button 
-          className="px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-          onClick={() => navigateTo('about')}
-        >
-          About Us
-        </button>
-        <button 
-          className="px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-          onClick={() => navigateTo('events')}
-        >
-          Events
-        </button>
-        <button 
-          className="px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-          onClick={() => navigateTo('booking')}
-        >
-          Book Lounge
-        </button>
-        <button 
-          className="px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-          onClick={() => navigateTo(isAdmin ? 'admin' : isLoggedIn ? 'profile' : 'login')}
-        >
-          {isAdmin ? 'Admin' : isLoggedIn ? 'Profile' : 'Login'}
-        </button>
       </div>
       
       <div 
@@ -77,7 +45,7 @@ const HomePage: React.FC<HomePageProps> = ({ navigateTo, error }) => {
       >
         Made with lots of ❤️ by JHU ACM
       </div>
-    </div>
+    </>
   );
 };
 

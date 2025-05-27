@@ -1,4 +1,5 @@
 import React from 'react';
+import Navbar from '../components/Navbar';
 
 interface EventsPageProps {
   navigateTo: (page: string, errorMessage?: string) => void;
@@ -35,7 +36,9 @@ const EventsPage: React.FC<EventsPageProps> = ({ navigateTo, error }) => {
   ];
 
   return (
-    <div className="events-container" style={{ position: 'relative', zIndex: 1 }}>
+    <>
+      <Navbar navigateTo={navigateTo} />
+      <div className="events-container" style={{ position: 'relative', zIndex: 1 }}>
       <div className="about-background" style={{ zIndex: -1 }}></div>
       {error && (
         <div className="error-message" style={{ position: 'relative', zIndex: 2 }}>
@@ -57,11 +60,10 @@ const EventsPage: React.FC<EventsPageProps> = ({ navigateTo, error }) => {
           </div>
         ))}
       </div>
-      <button className="home-button" onClick={() => navigateTo('home')} style={{ position: 'relative', zIndex: 2 }}>Back to Home</button>
       
-      <div 
+      <div
         onClick={() => navigateTo('credits')}
-        style={{ 
+        style={{
           fontSize: '0.8rem', 
           textAlign: 'center', 
           position: 'fixed',
@@ -79,7 +81,8 @@ const EventsPage: React.FC<EventsPageProps> = ({ navigateTo, error }) => {
       >
         Made with lots of ❤️ by JHU ACM
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

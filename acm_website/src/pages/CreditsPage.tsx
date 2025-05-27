@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import placeholderImage from '../assets/depositphotos_104564156-stock-illustration-male-user-icon.jpg';
 import '../styles/FlipCard.css';
+import Navbar from '../components/Navbar';
 
 interface CreditsPageProps {
   navigateTo: (page: string, errorMessage?: string) => void;
@@ -61,7 +62,9 @@ const CreditsPage: React.FC<CreditsPageProps> = ({ navigateTo, error }) => {
   ];
 
   return (
-    <div className="about-container" style={{ position: 'relative', zIndex: 1 }}>
+    <>
+      <Navbar navigateTo={navigateTo} />
+      <div className="about-container" style={{ position: 'relative', zIndex: 1 }}>
       <div className="about-background" style={{ zIndex: -1 }}></div>
       {error && (
         <div className="error-message" style={{ position: 'relative', zIndex: 2 }}>
@@ -147,23 +150,6 @@ const CreditsPage: React.FC<CreditsPageProps> = ({ navigateTo, error }) => {
         </div>
       </div>
       
-      <button 
-        className="home-button" 
-        onClick={() => navigateTo('home')}
-        style={{ 
-          padding: '8px 16px',
-          backgroundColor: '#3366cc',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: 'pointer',
-          marginTop: '20px',
-          position: 'relative',
-          zIndex: 2
-        }}
-      >
-        Back to Home
-      </button>
       
       <div 
         onClick={() => navigateTo('credits')}
@@ -186,6 +172,7 @@ const CreditsPage: React.FC<CreditsPageProps> = ({ navigateTo, error }) => {
         made with lots of ❤️ @JHU ACM
       </div>
     </div>
+    </>
   );
 };
 

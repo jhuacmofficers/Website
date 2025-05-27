@@ -5,6 +5,7 @@ import juliaImage from '../assets/alumni/julia bian.jpeg';
 import nishImage from '../assets/alumni/nish.jpeg';
 import chaseImage from '../assets/alumni/chase feng.jpeg';
 import '../styles/FlipCard.css';
+import Navbar from '../components/Navbar';
 
 interface AboutPageProps {
   navigateTo: (page: string, errorMessage?: string) => void;
@@ -149,7 +150,9 @@ const AboutPage: React.FC<AboutPageProps> = ({ navigateTo, error }) => {
   ];
 
   return (
-    <div className="about-container" style={{ position: 'relative', zIndex: 1 }}>
+    <>
+      <Navbar navigateTo={navigateTo} />
+      <div className="about-container" style={{ position: 'relative', zIndex: 1 }}>
       {error && (
             <div className="error-message">
               {error}
@@ -271,11 +274,10 @@ const AboutPage: React.FC<AboutPageProps> = ({ navigateTo, error }) => {
         ))}
       </div>
       
-      <button className="home-button" onClick={() => navigateTo('home')}>Back to Home</button>
       
-      <div 
+      <div
         onClick={() => navigateTo('credits')}
-        style={{ 
+        style={{
           fontSize: '0.8rem', 
           textAlign: 'center', 
           position: 'fixed',
@@ -293,6 +295,7 @@ const AboutPage: React.FC<AboutPageProps> = ({ navigateTo, error }) => {
         made with lots of ❤️ @JHU ACM
       </div>
     </div>
+    </>
   );
 };
 

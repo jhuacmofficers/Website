@@ -5,6 +5,7 @@ import { createUserWithEmailAndPassword,
          onAuthStateChanged,
          sendPasswordResetEmail,
          signInWithEmailAndPassword } from "firebase/auth";
+import Navbar from '../components/Navbar';
 
 
 interface LoginPageProps {
@@ -87,7 +88,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ navigateTo, error }) => {
   }
 
   return (
-    <div className="login-page">
+    <>
+      <Navbar navigateTo={navigateTo} />
+      <div className="login-page">
       <div className="about-background" style={{ zIndex: -1 }}></div>
       <div className="login-container">
         <div className="login-box">
@@ -127,8 +130,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ navigateTo, error }) => {
           </form>
         </div>
       </div>
-      <button className="home-button" onClick={() => navigateTo('home')}>Back to Home</button>
     </div>
+    </>
   );
 };
 
