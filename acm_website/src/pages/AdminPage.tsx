@@ -8,7 +8,7 @@ import { auth } from '../firebase/config';
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, doc, getFirestore, getDocs, query, where, updateDoc, addDoc, Timestamp, orderBy, arrayUnion } from "firebase/firestore";
 import * as XLSX from 'xlsx';
-import { deleteUser } from '../api';
+import { getUserRole, getMembers, createEvent as createEventAPI, deleteUser } from '../api';
 
 interface AdminPageProps {
   navigateTo: (page: string, errorMessage?: string) => void;
@@ -36,6 +36,7 @@ interface SpreadsheetRow {
 
 const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [members, setMembers] = useState<Member[]>([]);
   const [pastEvents, setPastEvents] = useState<Event[]>([]);
   
@@ -56,37 +57,48 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
   useEffect(() => {
     onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // check if user is admin
-        if (user.email !== "jhuacmweb@gmail.com") {
-          navigateTo('home', 'You do not have permission to access the admin page');
-          return;
+        try {
+          setIsLoading(true);
+          
+          // Check user role from server
+          const roleData = await getUserRole();
+          
+          if (!roleData.isAdmin) {
+            navigateTo('home', 'You do not have permission to access the admin page');
+            return;
+          }
+          
+          setIsAdmin(true);
+          
+          // Fetch members from server
+          const membersResponse = await getMembers();
+          const membersData: Member[] = membersResponse.members.map((member: any) => ({
+            uid: member.uid,
+            email: member.email,
+            eventsAttended: member.eventsAttended?.length || 0
+          }));
+          setMembers(membersData);
+
+          // Fetch past events (still using Firestore directly for now)
+          const db = getFirestore();
+          const eventsQuery = query(collection(db, "events"), where("end", "<", Timestamp.now()), orderBy("start", "desc"));
+          const eventsSnapshot = await getDocs(eventsQuery);
+          const events: Event[] = eventsSnapshot.docs
+            .map(doc => {
+              const data = doc.data();
+              return {
+                id: doc.id,
+                name: data.name,
+                date: data.start.toDate(),
+              };
+            });
+          setPastEvents(events);
+        } catch (error) {
+          console.error('Error verifying admin access:', error);
+          navigateTo('home', 'Unable to verify admin access. Please try again.');
+        } finally {
+          setIsLoading(false);
         }
-        setIsAdmin(true);
-        const db = getFirestore();
-
-        // Fetch members
-        const membersQuery = query(collection(db, "users"), where("isMember", "==", true));
-        const membersSnapshot = await getDocs(membersQuery);
-        const membersData: Member[] = membersSnapshot.docs.map(doc => ({
-          uid: doc.id,
-          email: doc.data().email,
-          eventsAttended: doc.data().eventsAttended?.length || 0
-        }));
-        setMembers(membersData);
-
-        // Fetch past events
-        const eventsQuery = query(collection(db, "events"), where("end", "<", Timestamp.now()), orderBy("start", "desc"));
-        const eventsSnapshot = await getDocs(eventsQuery);
-        const events: Event[] = eventsSnapshot.docs
-          .map(doc => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              name: data.name,
-              date: data.start.toDate(),
-            };
-          });
-        setPastEvents(events);
       } else {
         navigateTo('login', 'Please log in to access the admin page');
       }
@@ -96,7 +108,6 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const db = getFirestore();
       // get start and end date and time
       const startDateTime = new Date(`${eventStartDate}T${eventStartTime}`);
       const endDateTime = new Date(`${eventEndDate}T${eventEndTime}`);
@@ -107,14 +118,14 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
         return;
       }
 
-      // send event to database
-      await addDoc(collection(db, "events"), {
+      // Use secure API endpoint
+      await createEventAPI({
         name: eventTitle,
         description: eventDescription,
         location: eventLocation,
         link: eventLink,
-        start: Timestamp.fromDate(startDateTime),
-        end: Timestamp.fromDate(endDateTime),
+        start: startDateTime.toISOString(),
+        end: endDateTime.toISOString(),
       });
 
       // Reset form
@@ -130,7 +141,7 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
       alert('Event created successfully!');
     } catch (error) {
       console.error('Error creating event:', error);
-      alert('Failed to create event. Please try again.');
+      alert(`Failed to create event: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -146,14 +157,14 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
           deletedAt: Timestamp.now()
         });
 
-        // delete user credentials
+        // Use secure API endpoint to delete user credentials
         await deleteUser(uid);
 
         // remove user from members list
         setMembers(prev => prev.filter(member => member.uid !== uid));
       } catch (error) {
         console.error('Error removing member:', error);
-        alert('Failed to remove member. Please try again.');
+        alert(`Failed to remove member: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
   };
@@ -271,6 +282,19 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
       alert('Failed to log out. Please try again.');
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="admin-page">
+        <div className="admin-layout">
+          <div className="page-header">
+            <h1 className="page-title">Loading...</h1>
+            <p className="page-subtitle">Verifying admin access...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAdmin) {
     return null;

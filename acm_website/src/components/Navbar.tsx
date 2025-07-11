@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import '../styles/NavBar.css';
 import { auth } from '../firebase/config';
 import { onAuthStateChanged } from "firebase/auth";
+import { getUserRole } from '../api';
 import logo from '../assets/logo.png';
 
 interface NavbarProps {
@@ -12,11 +13,27 @@ interface NavbarProps {
 const Navbar: React.FC<NavbarProps> = ({ navigateTo }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [roleLoading, setRoleLoading] = useState(false);
 
   useEffect(() => {
-    onAuthStateChanged(auth, (user) => {
+    onAuthStateChanged(auth, async (user) => {
       setIsLoggedIn(!!user);
-      setIsAdmin(user?.email === "jhuacmweb@gmail.com");
+      
+      if (user) {
+        setRoleLoading(true);
+        try {
+          const roleData = await getUserRole();
+          setIsAdmin(roleData.isAdmin || false);
+        } catch (error) {
+          console.error('Error fetching user role:', error);
+          setIsAdmin(false);
+        } finally {
+          setRoleLoading(false);
+        }
+      } else {
+        setIsAdmin(false);
+        setRoleLoading(false);
+      }
     });
   }, []);
 
@@ -32,10 +49,14 @@ const Navbar: React.FC<NavbarProps> = ({ navigateTo }) => {
           <Link to="#" onClick={(e) => { e.preventDefault(); navigateTo('booking', '') }} className="nav-links">Book Lounge</Link>
           <Link 
             to="#"
-            onClick={(e) => { e.preventDefault(); navigateTo(isAdmin ? 'admin' : isLoggedIn ? 'profile' : 'login', '') }} 
+            onClick={(e) => { 
+              e.preventDefault(); 
+              if (roleLoading) return; // Prevent navigation while loading
+              navigateTo(isAdmin ? 'admin' : isLoggedIn ? 'profile' : 'login', '') 
+            }} 
             className="nav-links"
           >
-            {isAdmin ? 'Admin' : isLoggedIn ? 'Profile' : 'Login'}
+            {roleLoading ? 'Loading...' : isAdmin ? 'Admin' : isLoggedIn ? 'Profile' : 'Login'}
           </Link>
         </div>
       </div>
