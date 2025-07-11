@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import '../../styles/BookingPage.css';
 
 interface TimeSlot {
@@ -23,7 +23,7 @@ interface TimeSelectionProps {
   formatDate: (date: Date) => string;
 }
 
-const TimeSelection: React.FC<TimeSelectionProps> = ({
+const TimeSelection: React.FC<TimeSelectionProps> = memo(({
   dates,
   startTime,
   endTime,
@@ -127,6 +127,8 @@ const TimeSelection: React.FC<TimeSelectionProps> = ({
       </div>
     </div>
   </div>
-);
+));
+
+TimeSelection.displayName = 'TimeSelection';
 
 export default TimeSelection;

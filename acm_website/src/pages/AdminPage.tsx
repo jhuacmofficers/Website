@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import '../styles/AdminPage.css';
 import CreateEvent from '../components/admin/CreateEvent';
 import Members from '../components/admin/Members';
@@ -94,7 +94,8 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
     return unsubscribe;
   }, [navigateTo]);
 
-  const handleCreateEvent = async (e: React.FormEvent) => {
+  // Memoize event handlers
+  const handleCreateEvent = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const db = getFirestore();
@@ -133,9 +134,9 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
       console.error('Error creating event:', error);
       alert('Failed to create event. Please try again.');
     }
-  };
+  }, [eventTitle, eventDescription, eventLocation, eventLink, eventStartDate, eventStartTime, eventEndDate, eventEndTime]);
 
-  const handleRemoveMember = async (uid: string) => {
+  const handleRemoveMember = useCallback(async (uid: string) => {
     // confirm removal
     if (window.confirm('Are you sure you want to remove this member?')) {
       try {
@@ -157,9 +158,9 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
         alert('Failed to remove member. Please try again.');
       }
     }
-  };
+  }, []);
 
-  const handleAttendanceUpload = async (e: React.FormEvent) => {
+  const handleAttendanceUpload = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     // validate event and file
     if (!selectedEvent || !attendanceFile) {
@@ -261,9 +262,9 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
       console.error('Error uploading attendance:', error);
       alert(`Error uploading attendance: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  };
+  }, [selectedEvent, attendanceFile, pastEvents]);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       await signOut(auth);
       navigateTo('login', 'You have been logged out');
@@ -271,7 +272,7 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
       console.error('Error signing out:', error);
       alert('Failed to log out. Please try again.');
     }
-  };
+  }, [navigateTo]);
 
   if (!isAdmin) {
     return null;

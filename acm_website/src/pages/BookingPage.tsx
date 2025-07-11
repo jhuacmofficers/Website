@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import '../styles/BookingPage.css';
 import TimeSelection from '../components/booking/TimeSelection';
 import CalendarView from '../components/booking/CalendarView';
@@ -32,7 +32,6 @@ const BookingPage: React.FC<BookingPageProps> = ({ navigateTo, error }) => {
   });
   const [dates, setDates] = useState<Date[]>([]);
   const [week, setWeek] = useState<Date[][]>([]);
-  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [bookingError, setBookingError] = useState<string>('');
   const [bookingSuccess, setBookingSuccess] = useState<string>('');
   const [isMember, setIsMember] = useState<boolean | null>(null);
@@ -55,8 +54,8 @@ const BookingPage: React.FC<BookingPageProps> = ({ navigateTo, error }) => {
     return unsubscribe;
   }, [navigateTo]);
 
-  // Generate time slots for dropdowns
-  useEffect(() => {
+  // Memoize time slots generation - expensive calculation
+  const timeSlots = useMemo<TimeSlot[]>(() => {
     const slots: TimeSlot[] = [];
     // Start time slots (12 AM to 11:30 PM)
     for (let hour = 0; hour < 24; hour++) {
@@ -74,20 +73,25 @@ const BookingPage: React.FC<BookingPageProps> = ({ navigateTo, error }) => {
         });
       }
     }
-    setTimeSlots(slots);
+    return slots;
   }, []);
 
-  // Generate next 7 days
-  useEffect(() => {
-    const nextSevenDays: Date[] = [];
+  // Memoize dates generation
+  const nextSevenDays = useMemo<Date[]>(() => {
+    const dates: Date[] = [];
     const today = new Date();
     for (let i = 0; i < 7; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
-      nextSevenDays.push(date);
+      dates.push(date);
     }
-    setDates(nextSevenDays);
+    return dates;
   }, []);
+
+  // Update dates state when memoized value changes
+  useEffect(() => {
+    setDates(nextSevenDays);
+  }, [nextSevenDays]);
 
   useEffect(() => {
     // get bookings for the current week
@@ -101,15 +105,17 @@ const BookingPage: React.FC<BookingPageProps> = ({ navigateTo, error }) => {
     });
   }, []);
 
-  const formatDate = (date: Date): string => {
+  // Memoize formatDate function
+  const formatDate = useCallback((date: Date): string => {
     return date.toLocaleDateString('en-US', { 
       weekday: 'short', 
       month: 'short', 
       day: 'numeric' 
     });
-  };
+  }, []);
 
-  const handleDateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  // Memoize event handlers
+  const handleDateChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedIndex = parseInt(e.target.value);
     const newDate = dates[selectedIndex];
     
@@ -121,23 +127,23 @@ const BookingPage: React.FC<BookingPageProps> = ({ navigateTo, error }) => {
     const newEndTime = new Date(endTime);
     newEndTime.setFullYear(newDate.getFullYear(), newDate.getMonth(), newDate.getDate());
     setEndTime(newEndTime);
-  };
+  }, [dates, startTime, endTime]);
 
-  const handleStartTimeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleStartTimeChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const [hours, minutes] = e.target.value.split(':').map(Number);
     const newStartTime = new Date(startTime);
     newStartTime.setHours(hours, minutes, 0, 0);
     setStartTime(newStartTime);
-  };
+  }, [startTime]);
 
-  const handleEndTimeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleEndTimeChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const [hours, minutes] = e.target.value.split(':').map(Number);
     const newEndTime = new Date(endTime);
     newEndTime.setHours(hours, minutes, 0, 0);
     setEndTime(newEndTime);
-  };
+  }, [endTime]);
 
-  const validateBookingTimes = async (): Promise<boolean> => {
+  const validateBookingTimes = useCallback(async (): Promise<boolean> => {
     // Reset error message
     setBookingError('');
 
@@ -191,9 +197,9 @@ const BookingPage: React.FC<BookingPageProps> = ({ navigateTo, error }) => {
     }
 
     return true;
-  };
+  }, [startTime, endTime]);
 
-  const handleBooking = async () => {
+  const handleBooking = useCallback(async () => {
     try {
       if (!auth.currentUser) {
         throw new Error('User not authenticated');
@@ -227,9 +233,10 @@ const BookingPage: React.FC<BookingPageProps> = ({ navigateTo, error }) => {
       console.error('Error booking:', error);
       setBookingError('Failed to create booking. Please try again.');
     }
-  };
+  }, [isMember, startTime, endTime, validateBookingTimes]);
 
-  const isTimeSlotBooked = (date: Date, hour: number, minute: number): boolean => {
+  // Memoize isTimeSlotBooked function
+  const isTimeSlotBooked = useCallback((date: Date, hour: number, minute: number): boolean => {
     const slotTime = new Date(date);
     slotTime.setHours(hour, minute, 0, 0);
     
@@ -248,7 +255,7 @@ const BookingPage: React.FC<BookingPageProps> = ({ navigateTo, error }) => {
         date.getFullYear() === start.getFullYear()
       );
     });
-  };
+  }, [week]);
 
   return (
     <div className="booking-page">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import '../styles/LoginPage.css'; // Import the CSS file for styling
 import { auth } from '../firebase/config';
 import { createUserWithEmailAndPassword,
@@ -18,9 +18,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ navigateTo, error }) => {
   const [localError, setLocalError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const handleCredentials = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Memoize credential handler
+  const handleCredentials = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setUserCredentials({...userCredentials, [e.target.name]: e.target.value});
-  };
+  }, [userCredentials]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -35,14 +36,16 @@ const LoginPage: React.FC<LoginPageProps> = ({ navigateTo, error }) => {
     return unsubscribe;
   }, [navigateTo, error]);
 
-  function handleSignup(e: React.FormEvent) {
+  // Memoize event handlers
+  const handleSignup = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     setLocalError('');
     setIsLoading(true);
-    userCredentials.email = userCredentials.email.toLowerCase();
+    const credentials = {...userCredentials};
+    credentials.email = credentials.email.toLowerCase();
 
     // validate jhu email
-    const domain = userCredentials.email.split('@')[1];
+    const domain = credentials.email.split('@')[1];
     const validDomains = ['jh.edu', 'jhu.edu', 'cs.jhu.com'];
     if (!validDomains.includes(domain)) {
       setLocalError('Error: Invalid email domain. Please use a valid JHU email.');
@@ -50,7 +53,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ navigateTo, error }) => {
       return;
     }
     // signup with email and password
-    createUserWithEmailAndPassword(auth, userCredentials.email, userCredentials.password)
+    createUserWithEmailAndPassword(auth, credentials.email, credentials.password)
       .then(async (cred) => {
         try {
           const db = getFirestore();
@@ -122,15 +125,16 @@ const LoginPage: React.FC<LoginPageProps> = ({ navigateTo, error }) => {
       .finally(() => {
         setIsLoading(false);
       });
-  }
+  }, [userCredentials]);
 
-  function handleLogin(e: React.FormEvent) {
+  const handleLogin = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     setLocalError('');
     setIsLoading(true);
-    userCredentials.email = userCredentials.email.toLowerCase();
+    const credentials = {...userCredentials};
+    credentials.email = credentials.email.toLowerCase();
 
-    signInWithEmailAndPassword(auth, userCredentials.email, userCredentials.password)
+    signInWithEmailAndPassword(auth, credentials.email, credentials.password)
       .then(() => {
         // Login successful
       })
@@ -140,9 +144,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ navigateTo, error }) => {
       .finally(() => {
         setIsLoading(false);
       });
-  };
+  }, [userCredentials]);
 
-  function handlePasswordReset(e: React.FormEvent) {
+  const handlePasswordReset = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     const input = prompt("Please enter your JHU email address to reset your password:");
     if (!input) {
@@ -158,7 +162,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ navigateTo, error }) => {
       .catch((error) => {
         setLocalError(error.message);
       });
-  }
+  }, []);
 
   return (
     <div className="login-page page-container">
@@ -179,7 +183,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ navigateTo, error }) => {
                 id="email"
                 placeholder="Email Address"
                 name="email"
-                onChange={(e) => handleCredentials(e)}
+                onChange={handleCredentials}
                 required
               />
             </div>
@@ -190,21 +194,21 @@ const LoginPage: React.FC<LoginPageProps> = ({ navigateTo, error }) => {
                 id="password"
                 placeholder="Password"
                 name="password"
-                onChange={(e) => handleCredentials(e)}
+                onChange={handleCredentials}
                 required
               />
             </div>
             <div className="button-group">
               <button 
                 className="login-button" 
-                onClick={(e) => handleLogin(e)}
+                onClick={handleLogin}
                 disabled={isLoading}
               >
                 {isLoading ? 'Signing In...' : 'Sign In'}
               </button>
               <button 
                 className="signup-button" 
-                onClick={(e) => handleSignup(e)}
+                onClick={handleSignup}
                 disabled={isLoading}
               >
                 {isLoading ? 'Creating Account...' : 'Create Account'}

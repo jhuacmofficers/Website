@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import '../../styles/BookingPage.css';
 
 interface CalendarViewProps {
@@ -7,54 +7,41 @@ interface CalendarViewProps {
   formatDate: (date: Date) => string;
 }
 
-const CalendarView: React.FC<CalendarViewProps> = ({ dates, isTimeSlotBooked, formatDate }) => (
-  <div className="calendar-view">
-    <h2 className="section-title">Calendar View</h2>
-    <div className="calendar-container">
-      <div className="time-labels">
-        <div className="time-label-header">Time</div>
-        <div className="time-label-grid">
-          {Array.from({ length: 24 }, (_, hour) => {
-            const time = new Date();
-            time.setHours(hour, 0, 0, 0);
-            return (
-              <div key={hour} className="time-label">
-                {time.toLocaleTimeString('en-US', {
-                  hour: 'numeric',
-                  hour12: true,
-                })}
-              </div>
-            );
-          })}
-        </div>
+const CalendarView: React.FC<CalendarViewProps> = memo(({
+  dates,
+  isTimeSlotBooked,
+  formatDate
+}) => {
+  return (
+    <div className="calendar-view">
+      <h2 className="section-title">Room Availability</h2>
+      <div className="calendar-grid">
+        {dates.map((date, index) => (
+          <div key={index} className="calendar-day">
+            <div className="calendar-date">
+              <h3>{formatDate(date)}</h3>
+            </div>
+            <div className="time-slots">
+              {Array.from({ length: 24 }, (_, hour) => (
+                <div key={hour} className="time-slot-hour">
+                  {[0, 30].map(minute => (
+                    <div 
+                      key={`${hour}-${minute}`}
+                      className={`time-slot ${isTimeSlotBooked(date, hour, minute) ? 'booked' : 'available'}`}
+                    >
+                      {minute === 0 ? `${hour}:00` : `${hour}:30`}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
-      {dates.map((date, dayIndex) => (
-        <div key={dayIndex} className="calendar-day">
-          <div
-            className="calendar-day-title"
-            style={{ color: date.toDateString() === new Date().toDateString() ? '#007bff' : '#333' }}
-          >
-            {formatDate(date)}
-          </div>
-          <div className="calendar-day-slots">
-            {Array.from({ length: 48 }, (_, index) => {
-              const hour = Math.floor(index / 2);
-              const minute = (index % 2) * 30;
-              const isFullHour = minute === 0;
-              const isBooked = isTimeSlotBooked(date, hour, minute);
-              return (
-                <div
-                  key={index}
-                  className={`calendar-slot ${isBooked ? 'booked' : 'open'}${isFullHour ? ' full-hour' : ''}`}
-                  title={isBooked ? 'booked' : 'open'}
-                />
-              );
-            })}
-          </div>
-        </div>
-      ))}
     </div>
-  </div>
-);
+  );
+});
+
+CalendarView.displayName = 'CalendarView';
 
 export default CalendarView;

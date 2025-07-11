@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 
 interface UserInfoProps {
   email: string;
@@ -14,7 +14,7 @@ interface UserInfoProps {
   onChangePassword: () => void;
 }
 
-const UserInfoContainer: React.FC<UserInfoProps> = ({
+const UserInfoContainer: React.FC<UserInfoProps> = memo(({
   email,
   isMember,
   isOnMailingList,
@@ -93,6 +93,8 @@ const UserInfoContainer: React.FC<UserInfoProps> = ({
       </div>
     </div>
   );
-};
+});
+
+UserInfoContainer.displayName = 'UserInfoContainer';
 
 export default UserInfoContainer;

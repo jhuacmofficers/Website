@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import '../styles/ProfilePage.css';
 import { auth } from '../firebase/config';
 import { EmailAuthProvider, onAuthStateChanged, updatePassword, deleteUser, signOut, reauthenticateWithCredential } from "firebase/auth";
@@ -103,7 +103,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ navigateTo, error }) => {
     return unsubscribe;
   }, [navigateTo]);
 
-  const handleVerifyPassword = async () => {
+  // Memoize event handlers
+  const handleVerifyPassword = useCallback(async () => {
     try {
       const user = auth.currentUser;
       if (user) {
@@ -121,9 +122,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ navigateTo, error }) => {
       console.error(err);
       setPasswordError('Incorrect password. Please try again.');
     }
-  };
+  }, [currentPassword]);
 
-  const handlePasswordChange = async () => {
+  const handlePasswordChange = useCallback(async () => {
     // validate passwords
     if (newPassword !== confirmPassword) {
       setPasswordError('Passwords do not match');
@@ -148,9 +149,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ navigateTo, error }) => {
       console.error(err);
       setPasswordError('Failed to update password. Please try again.');
     }
-  };
+  }, [newPassword, confirmPassword]);
 
-  const handleDeleteAccount = async () => {
+  const handleDeleteAccount = useCallback(async () => {
     if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
       try {
         const user = auth.currentUser;
@@ -169,18 +170,18 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ navigateTo, error }) => {
         console.error('Error deleting account:', error);
       }
     }
-  };
+  }, [navigateTo]);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       await signOut(auth);
       navigateTo('home');
     } catch (error) {
       console.error('Error signing out:', error);
     }
-  };
+  }, [navigateTo]);
 
-  const handleJoinMailingList = async () => {
+  const handleJoinMailingList = useCallback(async () => {
     try {
       const user = auth.currentUser;
       if (user) {
@@ -193,9 +194,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ navigateTo, error }) => {
     } catch (error) {
       console.error('Error joining mailing list:', error);
     }
-  };
+  }, []);
 
-  const handleUnsubscribeMailingList = async () => {
+  const handleUnsubscribeMailingList = useCallback(async () => {
     try {
       const user = auth.currentUser;
       if (user) {
@@ -208,9 +209,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ navigateTo, error }) => {
     } catch (error) {
       console.error('Error unsubscribing from mailing list:', error);
     }
-  };
+  }, []);
 
-  const handleBecomeMember = async () => {
+  const handleBecomeMember = useCallback(async () => {
     setMemberError('');
     setMemberSuccess('');
 
@@ -233,9 +234,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ navigateTo, error }) => {
       console.error('Error updating membership:', error);
       setMemberError('Failed to update membership status. Please try again.');
     }
-  };
+  }, [eventsAttended]);
 
-  const formatDate = (date: Date): string => {
+  // Memoize format functions
+  const formatDate = useCallback((date: Date): string => {
     return date.toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',
@@ -243,17 +245,17 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ navigateTo, error }) => {
       year: 'numeric',
       hour12: true
     });
-  };
+  }, []);
 
-  const formatTime = (date: Date): string => {
+  const formatTime = useCallback((date: Date): string => {
     return date.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true
     });
-  };
+  }, []);
 
-  const handleDeleteBooking = async (bookingId: string) => {
+  const handleDeleteBooking = useCallback(async (bookingId: string) => {
     if (window.confirm('Are you sure you want to cancel this booking?')) {
       try {
         const db = getFirestore();
@@ -263,7 +265,61 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ navigateTo, error }) => {
         console.error('Error deleting booking:', error);
       }
     }
-  };
+  }, []);
+
+  // Memoize modal close handlers
+  const handleCloseVerifyModal = useCallback(() => {
+    setShowVerifyModal(false);
+    setCurrentPassword('');
+    setPasswordError('');
+  }, []);
+
+  const handleClosePasswordModal = useCallback(() => {
+    setShowPasswordModal(false);
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordError('');
+  }, []);
+
+  const handleChangePassword = useCallback(() => {
+    setShowVerifyModal(true);
+  }, []);
+
+  // Memoize render functions for EventsContainer
+  const renderUpcomingBooking = useCallback((booking: Booking) => (
+    <div className="booking-item upcoming" key={booking.id}>
+      <span>
+        {formatDate(booking.start)} • {formatTime(booking.start)} - {formatTime(booking.end)}
+      </span>
+      <button className="delete-icon" onClick={() => handleDeleteBooking(booking.id)}>
+        ×
+      </button>
+    </div>
+  ), [formatDate, formatTime, handleDeleteBooking]);
+
+  const renderPastBooking = useCallback((booking: Booking) => (
+    <div className="booking-item" key={booking.id}>
+      {formatDate(booking.start)} • {formatTime(booking.start)} - {formatTime(booking.end)}
+    </div>
+  ), [formatDate, formatTime]);
+
+  const renderUpcomingEvent = useCallback((event: Event, index: number) => (
+    <div className="event-item" key={`${event.id}-${index}`}>
+      <h4 className="event-title">{event.title}</h4>
+      <p className="event-date">
+        {formatDate(event.date)} • {formatTime(event.date)}
+      </p>
+    </div>
+  ), [formatDate, formatTime]);
+
+  const renderPastEvent = useCallback((event: Event, index: number) => (
+    <div className="event-item" key={`${event.id}-${index}`}>
+      <h4 className="event-title">{event.title}</h4>
+      <p className="event-date">
+        {formatDate(event.date)} • {formatTime(event.date)}
+      </p>
+    </div>
+  ), [formatDate, formatTime]);
 
   return (
     <div className="profile-page page-container">
@@ -281,7 +337,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ navigateTo, error }) => {
           onUnsubscribeMailingList={handleUnsubscribeMailingList}
           onLogout={handleLogout}
           onDeleteAccount={handleDeleteAccount}
-          onChangePassword={() => setShowVerifyModal(true)}
+          onChangePassword={handleChangePassword}
         />
 
         <EventsContainer
@@ -290,21 +346,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ navigateTo, error }) => {
           pastTitle="Past Bookings"
           upcomingItems={upcomingBookings}
           pastItems={pastBookings}
-          renderUpcomingItem={(booking) => (
-            <div className="booking-item upcoming" key={booking.id}>
-              <span>
-                {formatDate(booking.start)} • {formatTime(booking.start)} - {formatTime(booking.end)}
-              </span>
-              <button className="delete-icon" onClick={() => handleDeleteBooking(booking.id)}>
-                ×
-              </button>
-            </div>
-          )}
-          renderPastItem={(booking) => (
-            <div className="booking-item" key={booking.id}>
-              {formatDate(booking.start)} • {formatTime(booking.start)} - {formatTime(booking.end)}
-            </div>
-          )}
+          renderUpcomingItem={renderUpcomingBooking}
+          renderPastItem={renderPastBooking}
         />
 
         <EventsContainer
@@ -313,22 +356,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ navigateTo, error }) => {
           pastTitle="Past Events"
           upcomingItems={upcomingEvents}
           pastItems={pastEvents}
-          renderUpcomingItem={(event, index) => (
-            <div className="event-item" key={`${event.id}-${index}`}>
-              <h4 className="event-title">{event.title}</h4>
-              <p className="event-date">
-                {formatDate(event.date)} • {formatTime(event.date)}
-              </p>
-            </div>
-          )}
-          renderPastItem={(event, index) => (
-            <div className="event-item" key={`${event.id}-${index}`}>
-              <h4 className="event-title">{event.title}</h4>
-              <p className="event-date">
-                {formatDate(event.date)} • {formatTime(event.date)}
-              </p>
-            </div>
-          )}
+          renderUpcomingItem={renderUpcomingEvent}
+          renderPastItem={renderPastEvent}
         />
       </div>
 
@@ -336,11 +365,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ navigateTo, error }) => {
         show={showVerifyModal}
         currentPassword={currentPassword}
         passwordError={passwordError}
-        onClose={() => {
-          setShowVerifyModal(false);
-          setCurrentPassword('');
-          setPasswordError('');
-        }}
+        onClose={handleCloseVerifyModal}
         onCurrentPasswordChange={setCurrentPassword}
         onSubmit={handleVerifyPassword}
       />
@@ -350,12 +375,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ navigateTo, error }) => {
         newPassword={newPassword}
         confirmPassword={confirmPassword}
         passwordError={passwordError}
-        onClose={() => {
-          setShowPasswordModal(false);
-          setNewPassword('');
-          setConfirmPassword('');
-          setPasswordError('');
-        }}
+        onClose={handleClosePasswordModal}
         onNewPasswordChange={setNewPassword}
         onConfirmPasswordChange={setConfirmPassword}
         onSubmit={handlePasswordChange}

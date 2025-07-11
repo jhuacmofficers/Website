@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 
 interface EventsContainerProps<T> {
   title: string;
@@ -10,7 +10,7 @@ interface EventsContainerProps<T> {
   renderPastItem: (item: T, index: number) => React.ReactNode;
 }
 
-function EventsContainer<T>({
+const EventsContainer = memo(<T,>({
   title,
   upcomingTitle,
   pastTitle,
@@ -18,7 +18,7 @@ function EventsContainer<T>({
   pastItems,
   renderUpcomingItem,
   renderPastItem,
-}: EventsContainerProps<T>) {
+}: EventsContainerProps<T>) => {
   return (
     <div className="profile-section">
       <h2 className="section-title">{title}</h2>
@@ -48,6 +48,8 @@ function EventsContainer<T>({
       </div>
     </div>
   );
-}
+});
+
+EventsContainer.displayName = 'EventsContainer';
 
 export default EventsContainer;
