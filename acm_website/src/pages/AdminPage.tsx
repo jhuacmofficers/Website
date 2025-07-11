@@ -6,9 +6,8 @@ import AttendanceUpload from '../components/admin/AttendanceUpload';
 import Account from '../components/admin/Account';
 import { auth } from '../firebase/config';
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, doc, getFirestore, getDocs, query, where, updateDoc, addDoc, Timestamp, orderBy, arrayUnion } from "firebase/firestore";
 import * as XLSX from 'xlsx';
-import { getUserRole, getMembers, createEvent as createEventAPI, deleteUser } from '../api';
+import { getUserRole, getMembers, getPastEvents, createEvent as createEventAPI, deleteUser, updateUserMemberStatus, processAttendance } from '../api';
 
 interface AdminPageProps {
   navigateTo: (page: string, errorMessage?: string) => void;
@@ -70,29 +69,27 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
           
           setIsAdmin(true);
           
-          // Fetch members from server
-          const membersResponse = await getMembers();
+          // Fetch members and past events from server
+          const [membersResponse, eventsResponse] = await Promise.all([
+            getMembers(),
+            getPastEvents()
+          ]);
+          
           const membersData: Member[] = membersResponse.members.map((member: any) => ({
             uid: member.uid,
             email: member.email,
             eventsAttended: member.eventsAttended?.length || 0
           }));
           setMembers(membersData);
-
-          // Fetch past events (still using Firestore directly for now)
-          const db = getFirestore();
-          const eventsQuery = query(collection(db, "events"), where("end", "<", Timestamp.now()), orderBy("start", "desc"));
-          const eventsSnapshot = await getDocs(eventsQuery);
-          const events: Event[] = eventsSnapshot.docs
-            .map(doc => {
-              const data = doc.data();
-              return {
-                id: doc.id,
-                name: data.name,
-                date: data.start.toDate(),
-              };
-            });
-          setPastEvents(events);
+          
+          const eventsData: Event[] = eventsResponse.events.map((event: any) => ({
+            id: event.id,
+            name: event.name,
+            date: new Date(event.start),
+            attendees: event.attendees || []
+          }));
+          setPastEvents(eventsData);
+          
         } catch (error) {
           console.error('Error verifying admin access:', error);
           navigateTo('home', 'Unable to verify admin access. Please try again.');
@@ -149,19 +146,16 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
     // confirm removal
     if (window.confirm('Are you sure you want to remove this member?')) {
       try {
-        // update user in database
-        const db = getFirestore();
-        await updateDoc(doc(db, "users", uid), {
-          isMember: false,
-          deleted: true,
-          deletedAt: Timestamp.now()
-        });
+        // Update user status through API
+        await updateUserMemberStatus(uid, false, true);
 
         // Use secure API endpoint to delete user credentials
         await deleteUser(uid);
 
         // remove user from members list
         setMembers(prev => prev.filter(member => member.uid !== uid));
+        
+        alert('Member removed successfully!');
       } catch (error) {
         console.error('Error removing member:', error);
         alert(`Failed to remove member: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -178,8 +172,6 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
     }
 
     try {
-      const db = getFirestore();
-
       // Read the spreadsheet file
       const reader = new FileReader();
       reader.onload = async (e) => {
@@ -200,62 +192,24 @@ const AdminPage: React.FC<AdminPageProps> = ({ navigateTo, error }) => {
             throw new Error('No valid emails found in the spreadsheet');
           }
 
-          // Get all users whose emails match the attendees
-          const usersQuery = query(
-            collection(db, "users"),
-            where("email", "in", attendeeEmails)
-          );
-          const usersSnapshot = await getDocs(usersQuery);
+          // Use the secure API endpoint to process attendance
+          const result = await processAttendance(selectedEvent, attendeeEmails);
 
-          // Get the event details
-          const event = pastEvents.find(e => e.id === selectedEvent);
-          if (!event) {
-            throw new Error('Event not found');
-          }
-
-          // get attendee list
-          const attendees: { uid: string; email: string }[] = [];
-          const updatePromises = usersSnapshot.docs.map(async (userDoc) => {
-            const userData = userDoc.data();
-            attendees.push({
-              uid: userDoc.id,
-              email: userData.email
-            });
-
-            // Update user's eventsAttended
-            return updateDoc(doc(db, "users", userDoc.id), {
-              eventsAttended: arrayUnion({
-                eventID: event.id,
-                name: event.name,
-                date: event.date
-              })
-            });
-          });
-
-          // Add unknown attendees
-          for (const email of attendeeEmails) {
-            if (attendees.find(a => a.email === email)) {
-              continue;
-            }
-            attendees.push({
-              uid: "unknown",
-              email: email
-            });
-          }
-
-          // Update event's attendees
-          const eventUpdatePromise = updateDoc(doc(db, "events", event.id), {
-            attendees: attendees
-          });
-
-          // Wait for all updates to complete
-          await Promise.all([...updatePromises, eventUpdatePromise]);
-
-          alert(`Successfully processed attendance for ${attendees.length} members`);
+          alert(`Successfully processed attendance for ${result.attendeeCount} attendees (${result.knownUsers} known users, ${result.unknownUsers} unknown users)`);
           
           // Reset form
           setSelectedEvent('');
           setAttendanceFile(null);
+          
+          // Refresh members list
+          const membersResponse = await getMembers();
+          const membersData: Member[] = membersResponse.members.map((member: any) => ({
+            uid: member.uid,
+            email: member.email,
+            eventsAttended: member.eventsAttended?.length || 0
+          }));
+          setMembers(membersData);
+          
         } catch (error) {
           console.error('Error processing attendance:', error);
           alert(`Error processing attendance: ${error instanceof Error ? error.message : 'Unknown error'}`);

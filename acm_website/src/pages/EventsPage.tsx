@@ -1,202 +1,296 @@
 import React, { useState, useEffect } from 'react';
-import { getFirestore, query, collection, where, Timestamp, orderBy, getDocs, updateDoc, doc, arrayUnion, getDoc } from 'firebase/firestore';
-import '../styles/EventsPage.css';
 import { auth } from '../firebase/config';
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { getEvents, getUserProfile, registerForEvent } from '../api';
+import '../styles/EventsPage.css';
+
+interface Event {
+  id: string;
+  name: string;
+  description: string;
+  location: string;
+  link: string;
+  start: Date;
+  end: Date;
+  attendees?: { uid: string; email: string }[];
+  registered?: { uid: string; email: string; name: string }[];
+}
 
 interface EventsPageProps {
   navigateTo: (page: string, errorMessage?: string) => void;
   error?: string;
 }
 
-interface Event {
-  id: string;
-  title: string;
-  date: Date;
-  start_time: string;
-  end_time: string;
-  location: string;
-  description: string;
-}
-
 const EventsPage: React.FC<EventsPageProps> = ({ navigateTo, error }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [isMember, setIsMember] = useState(false);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [pastEvents, setPastEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [registeredEvents, setRegisteredEvents] = useState<Event[]>([]);
-
-  const db = getFirestore();
-  
-  const fetchUpcomingEvents = async () => {
-    const upcomingEventsQuery = query(collection(db, "events"), where("start", ">=", Timestamp.now()), orderBy("start", "desc"));
-    const upcomingEventsSnapshot = await getDocs(upcomingEventsQuery);
-    const upcomingEvents: Event[] = upcomingEventsSnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        title: data.name || 'Untitled Event',
-        date: data.start.toDate(),
-        start_time: data.start ? data.start.toDate().toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true
-        }) : 'TBD',
-        end_time: data.end ? data.end.toDate().toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true
-        }) : 'TBD',
-        location: data.location || 'TBD',
-        description: data.description || '',
-      };
-    });
-    setUpcomingEvents(upcomingEvents);
-  }
-
-  const fetchPastEvents = async () => {
-    const pastEventsQuery = query(collection(db, "events"), where("start", "<", Timestamp.now()), orderBy("start", "desc"));
-    const pastEventsSnapshot = await getDocs(pastEventsQuery);
-    const pastEvents: Event[] = pastEventsSnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        title: data.name || 'Untitled Event',
-        date: data.start.toDate(),
-        start_time: data.start ? data.start.toDate().toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true
-        }) : 'TBD',
-        end_time: data.end ? data.end.toDate().toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true
-        }) : 'TBD',
-        location: data.location || 'TBD',
-        description: data.description || '',
-      };
-    });
-    setPastEvents(pastEvents);
-  }
+  const [registrationLoading, setRegistrationLoading] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchEvents = async () => {
+    const loadEvents = async () => {
       try {
-        await fetchUpcomingEvents();
-        await fetchPastEvents();
+        const [upcomingResponse, pastResponse] = await Promise.all([
+          getEvents('upcoming'),
+          getEvents('past')
+        ]);
+
+        setUpcomingEvents(upcomingResponse.events || []);
+        setPastEvents(pastResponse.events || []);
       } catch (error) {
-        console.error('Error fetching events:', error);
+        console.error('Error loading events:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchEvents();
-  }, [db]);
+    loadEvents();
+  }, []);
 
   useEffect(() => {
-    onAuthStateChanged(auth, async (user) => {
-      setIsLoggedIn(!!user);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          const registered: Event[] = userData.eventsRegistered.map((event: any) => ({
-            id: event.eventID,
-          }));
-          setRegisteredEvents(registered);
+        setUser(user);
+        try {
+          const userProfile = await getUserProfile();
+          setIsMember(userProfile.isMember || false);
+        } catch (error) {
+          console.error('Error fetching user profile:', error);
+          setIsMember(false);
         }
-      } else setRegisteredEvents([]);
+      } else {
+        setUser(null);
+        setIsMember(false);
+      }
     });
-  }, [db]);
 
-  const handleRSVP = async (eventID: string) => {
-    if (!isLoggedIn) {
-      navigateTo('login', 'Please log in to register for events.');
+    return () => unsubscribe();
+  }, []);
+
+  const handleRegisterForEvent = async (eventID: string) => {
+    if (!user) {
+      navigateTo('login', 'Please log in to register for events');
       return;
     }
+
+    if (!isMember) {
+      alert('Only ACM members can register for events. Please join ACM first.');
+      return;
+    }
+
+    setRegistrationLoading(eventID);
     try {
-      const user = auth.currentUser;
-      const event = upcomingEvents.find(e => e.id === eventID);
-      await updateDoc(doc(db, 'events', eventID), {
-        registered: arrayUnion({ uid: user?.uid, email: user?.email })
-      });
-      if (!user?.uid) throw new Error('User ID not found');
-      await updateDoc(doc(db, 'users', user.uid), {
-        eventsRegistered: arrayUnion({ date: event?.date, eventID: event?.id, title: event?.title })
-      });
-      alert('Successfully registered for the event!');
+      await registerForEvent(eventID);
+      alert('Successfully registered for event!');
+      
+      // Refresh events to show updated registration
+      const [upcomingResponse, pastResponse] = await Promise.all([
+        getEvents('upcoming'),
+        getEvents('past')
+      ]);
+
+      setUpcomingEvents(upcomingResponse.events || []);
+      setPastEvents(pastResponse.events || []);
     } catch (error) {
-      alert('Error registering for event.');
-      console.error(error);
+      console.error('Error registering for event:', error);
+      alert(`Failed to register for event: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setRegistrationLoading(null);
     }
   };
 
+  const isUserRegistered = (event: Event): boolean => {
+    if (!user || !event.registered) return false;
+    return event.registered.some(reg => reg.uid === user.uid);
+  };
+
+  const formatEventDate = (date: Date): string => {
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const formatEventTime = (date: Date): string => {
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
+  const renderEvent = (event: Event, isUpcoming: boolean = false) => (
+    <div key={event.id} className="event-card">
+      <div className="event-header">
+        <h3 className="event-title">{event.name}</h3>
+        <div className="event-date">
+          {formatEventDate(event.start)}
+        </div>
+        <div className="event-time">
+          {formatEventTime(event.start)} - {formatEventTime(event.end)}
+        </div>
+      </div>
+      
+      <div className="event-content">
+        {event.description && (
+          <p className="event-description">{event.description}</p>
+        )}
+        
+        {event.location && (
+          <div className="event-location">
+            <strong>Location:</strong> {event.location}
+          </div>
+        )}
+        
+        {event.link && (
+          <div className="event-link">
+            <a href={event.link} target="_blank" rel="noopener noreferrer">
+              Event Link
+            </a>
+          </div>
+        )}
+        
+        {event.attendees && event.attendees.length > 0 && (
+          <div className="event-attendees">
+            <strong>Attendees:</strong> {event.attendees.length}
+          </div>
+        )}
+        
+        {event.registered && event.registered.length > 0 && (
+          <div className="event-registered">
+            <strong>Registered:</strong> {event.registered.length}
+          </div>
+        )}
+      </div>
+      
+      {isUpcoming && user && isMember && (
+        <div className="event-actions">
+          {isUserRegistered(event) ? (
+            <button className="registered-btn" disabled>
+              Already Registered
+            </button>
+          ) : (
+            <button
+              className="register-btn"
+              onClick={() => handleRegisterForEvent(event.id)}
+              disabled={registrationLoading === event.id}
+            >
+              {registrationLoading === event.id ? 'Registering...' : 'Register'}
+            </button>
+          )}
+        </div>
+      )}
+      
+      {isUpcoming && !user && (
+        <div className="event-actions">
+          <button 
+            className="login-to-register-btn"
+            onClick={() => navigateTo('login', 'Please log in to register for events')}
+          >
+            Login to Register
+          </button>
+        </div>
+      )}
+      
+      {isUpcoming && user && !isMember && (
+        <div className="event-actions">
+          <button 
+            className="join-to-register-btn"
+            onClick={() => navigateTo('profile', 'Please join ACM to register for events')}
+          >
+            Join ACM to Register
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
   if (loading) {
     return (
-      <div className="events-container">
-        <h1 className="events-title">Loading Events...</h1>
+      <div className="events-page">
+        <div className="events-container">
+          <div className="events-header">
+            <h1>Loading Events...</h1>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="events-container">
-      {error && (
-        <div className="error-message" style={{ position: 'relative', zIndex: 2 }}>
-          {error}
+    <div className="events-page">
+      <div className="events-container">
+        <div className="events-header">
+          <h1>ACM Events</h1>
+          <p className="events-subtitle">
+            Join us for exciting events, workshops, and networking opportunities!
+          </p>
         </div>
-      )}
 
-      {/*Upcoming Events */}
-      <h1 className="events-title">Upcoming Events</h1>
-      <div className="events-list">
-        {upcomingEvents.length === 0 ? (
-          <div className="no-events-message">
-            <p>No upcoming events at the moment.</p>
-            <p>Check back soon for new events!</p>
+        {error && (
+          <div className="error-message">
+            {error}
           </div>
-        ) : (
-          upcomingEvents.map(event => {
-            const isRegistered = registeredEvents.some(e => e.id == event.id);
-            return (
-              <div key={event.id} className="event-card">
-                <h2 className="event-title">{event.title}</h2>
-                <div className="event-details">
-                  <p><strong>Date:</strong> {event.date.toLocaleDateString()}</p>
-                  <p><strong>Time:</strong> {event.start_time} - {event.end_time}</p>
-                  <p><strong>Location:</strong> {event.location}</p>
-                </div>
-                <p className="event-description">{event.description}</p>
-                <button
-                  className="event-button"
-                  onClick={() => handleRSVP(event.id)}
-                  disabled={isRegistered}
-                  style={isRegistered ? { background: '#aaa', color: '#fff', cursor: 'not-allowed' } : {}}
-                >
-                  {isRegistered ? 'Registered' : 'RSVP'}
-                </button>
-              </div>
-            )
-          })
         )}
-      </div>
 
-      {/* Past Events */}
-      <h1 className="events-title">Past Events</h1>
-      <div className="events-list">
-        {pastEvents.map(event => (
-          <div key={event.id} className="event-card" style={{ backgroundColor: 'rgba(220, 220, 220, 0.8)' }}>
-            <h2 className="event-title">{event.title}</h2>
-            <div className="event-details">
-              <p><strong>Date:</strong> {event.date.toLocaleDateString()}</p>
-              <p><strong>Time:</strong> {event.start_time} - {event.end_time}</p>
-              <p><strong>Location:</strong> {event.location}</p>
-            </div>
-            <p className="event-description">{event.description}</p>
+        <div className="events-content">
+          <section className="events-section">
+            <h2>Upcoming Events</h2>
+            {upcomingEvents.length === 0 ? (
+              <div className="no-events">
+                <p>No upcoming events at the moment.</p>
+                <p>Check back later for exciting new events!</p>
+              </div>
+            ) : (
+              <div className="events-grid">
+                {upcomingEvents.map(event => renderEvent(event, true))}
+              </div>
+            )}
+          </section>
+
+          <section className="events-section">
+            <h2>Past Events</h2>
+            {pastEvents.length === 0 ? (
+              <div className="no-events">
+                <p>No past events to display.</p>
+              </div>
+            ) : (
+              <div className="events-grid">
+                {pastEvents.map(event => renderEvent(event, false))}
+              </div>
+            )}
+          </section>
+        </div>
+
+        {!user && (
+          <div className="member-cta">
+            <h3>Want to participate in our events?</h3>
+            <p>Sign up for an account and join ACM to register for events!</p>
+            <button 
+              className="cta-button"
+              onClick={() => navigateTo('login', '')}
+            >
+              Get Started
+            </button>
           </div>
-        ))}
+        )}
+
+        {user && !isMember && (
+          <div className="member-cta">
+            <h3>Ready to join ACM?</h3>
+            <p>Become a member to register for events and access exclusive resources!</p>
+            <button 
+              className="cta-button"
+              onClick={() => navigateTo('profile', '')}
+            >
+              Join ACM
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,296 +1,359 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/BookingPage.css';
-import TimeSelection from '../components/booking/TimeSelection';
-import CalendarView from '../components/booking/CalendarView';
-import { app, auth } from '../firebase/config';
-import { onAuthStateChanged } from "firebase/auth";
-import { collection, doc, getFirestore, setDoc, Timestamp, query, where, getDocs, getDoc } from "firebase/firestore";
-
-const db = getFirestore(app);
+import { auth } from '../firebase/config';
+import { onAuthStateChanged, User } from "firebase/auth";
+import { getUserProfile, getWeeklyBookings, getDailyBookings, createBooking } from '../api';
 
 interface BookingPageProps {
   navigateTo: (page: string, errorMessage?: string) => void;
   error?: string;
 }
 
-interface TimeSlot {
-  hour: number;
-  minute: number;
-  label: string;
+interface BookingData {
+  start: string;
+  end: string;
 }
 
 const BookingPage: React.FC<BookingPageProps> = ({ navigateTo, error }) => {
-  const [startTime, setStartTime] = useState<Date>(() => {
-    const date = new Date();
-    date.setHours(9, 0, 0, 0);
-    return date;
-  });
-  const [endTime, setEndTime] = useState<Date>(() => {
-    const date = new Date();
-    date.setHours(10, 0, 0, 0);
-    return date;
-  });
-  const [dates, setDates] = useState<Date[]>([]);
-  const [week, setWeek] = useState<Date[][]>([]);
-  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
-  const [bookingError, setBookingError] = useState<string>('');
-  const [bookingSuccess, setBookingSuccess] = useState<string>('');
-  const [isMember, setIsMember] = useState<boolean | null>(null);
-  const [showMembershipPrompt, setShowMembershipPrompt] = useState<boolean>(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [isMember, setIsMember] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [week, setWeek] = useState<[Date, Date][]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedStartTime, setSelectedStartTime] = useState<string>('');
+  const [selectedEndTime, setSelectedEndTime] = useState<string>('');
+  const [purpose, setPurpose] = useState<string>('');
+  const [bookingLoading, setBookingLoading] = useState(false);
 
-  // Initial auth check
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          setIsMember(userDoc.data().isMember || false);
-        } else {
+        setUser(user);
+        try {
+          const userProfile = await getUserProfile();
+          setIsMember(userProfile.isMember || false);
+        } catch (error) {
+          console.error('Error fetching user profile:', error);
           setIsMember(false);
         }
       } else {
-        navigateTo('login', 'Please log in to access the booking page');
+        setUser(null);
+        setIsMember(false);
       }
+      setLoading(false);
     });
-    return unsubscribe;
-  }, [navigateTo]);
 
-  // Generate time slots for dropdowns
-  useEffect(() => {
-    const slots: TimeSlot[] = [];
-    // Start time slots (12 AM to 11:30 PM)
-    for (let hour = 0; hour < 24; hour++) {
-      for (const minute of [0, 30]) {
-        const time = new Date();
-        time.setHours(hour, minute, 0, 0);
-        slots.push({
-          hour,
-          minute,
-          label: time.toLocaleTimeString('en-US', { 
-            hour: 'numeric', 
-            minute: '2-digit', 
-            hour12: true 
-          })
-        });
-      }
-    }
-    setTimeSlots(slots);
-  }, []);
-
-  // Generate next 7 days
-  useEffect(() => {
-    const nextSevenDays: Date[] = [];
-    const today = new Date();
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      nextSevenDays.push(date);
-    }
-    setDates(nextSevenDays);
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
-    // get bookings for the current week
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const q = query(collection(db, "bookings"), 
-      where("start", ">=", Timestamp.fromDate(today)), 
-      where("start", "<=", Timestamp.fromDate(new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000))));
-    getDocs(q).then((querySnapshot) => {
-      setWeek(querySnapshot.docs.map((doc) => [doc.data().start.toDate(), doc.data().end.toDate()]));
-    });
+    const loadWeeklyBookings = async () => {
+      try {
+        const response = await getWeeklyBookings();
+        const bookings = response.bookings || [];
+        const weekData: [Date, Date][] = bookings.map((booking: BookingData) => [
+          new Date(booking.start),
+          new Date(booking.end)
+        ]);
+        setWeek(weekData);
+      } catch (error) {
+        console.error('Error loading weekly bookings:', error);
+      }
+    };
+
+    loadWeeklyBookings();
   }, []);
 
-  const formatDate = (date: Date): string => {
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric' 
-    });
-  };
-
-  const handleDateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedIndex = parseInt(e.target.value);
-    const newDate = dates[selectedIndex];
-    
-    // Update both start and end times with the new date
-    const newStartTime = new Date(startTime);
-    newStartTime.setFullYear(newDate.getFullYear(), newDate.getMonth(), newDate.getDate());
-    setStartTime(newStartTime);
-
-    const newEndTime = new Date(endTime);
-    newEndTime.setFullYear(newDate.getFullYear(), newDate.getMonth(), newDate.getDate());
-    setEndTime(newEndTime);
-  };
-
-  const handleStartTimeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const [hours, minutes] = e.target.value.split(':').map(Number);
-    const newStartTime = new Date(startTime);
-    newStartTime.setHours(hours, minutes, 0, 0);
-    setStartTime(newStartTime);
-  };
-
-  const handleEndTimeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const [hours, minutes] = e.target.value.split(':').map(Number);
-    const newEndTime = new Date(endTime);
-    newEndTime.setHours(hours, minutes, 0, 0);
-    setEndTime(newEndTime);
-  };
-
-  const validateBookingTimes = async (): Promise<boolean> => {
-    // Reset error message
-    setBookingError('');
-
-    // Check if start time is after end time
-    if (startTime >= endTime) {
-      setBookingError('End time must be after start time');
-      return false;
-    }
-
-    // Check if booking duration is more than 2 hours
-    const durationInHours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
-    if (durationInHours > 2) {
-      setBookingError('Booking duration cannot exceed 2 hours');
-      return false;
-    }
-
-    // Check if user already has a booking on this day
-    if (auth.currentUser) {
-      const startOfDay = new Date(startTime);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(startTime);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      const q = query(
-        collection(db, "bookings"),
-        where("UID", "==", auth.currentUser.uid),
-        where("start", ">=", Timestamp.fromDate(startOfDay)),
-        where("start", "<=", Timestamp.fromDate(endOfDay))
-      );
-
-      const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-        setBookingError('You already have a booking on this day');
-        return false;
-      }
-    }
-
-    // Check if any part of the requested time slot is already booked
-    const checkTime = new Date(startTime);
-    while (checkTime < endTime) {
-      if (isTimeSlotBooked(
-        checkTime,
-        checkTime.getHours(),
-        checkTime.getMinutes()
-      )) {
-        setBookingError('This time slot overlaps with an existing booking');
-        return false;
-      }
-      // Check every 30 minutes
-      checkTime.setMinutes(checkTime.getMinutes() + 30);
-    }
-
-    return true;
+  const handleDateSelect = (date: Date) => {
+    setSelectedDate(date);
+    setSelectedStartTime('');
+    setSelectedEndTime('');
   };
 
   const handleBooking = async () => {
+    if (!user) {
+      navigateTo('login', 'Please log in to make a booking');
+      return;
+    }
+
+    if (!isMember) {
+      alert('Only ACM members can book the lounge. Please join ACM first.');
+      return;
+    }
+
+    if (!selectedDate || !selectedStartTime || !selectedEndTime) {
+      alert('Please select a date and time for your booking.');
+      return;
+    }
+
+    // Create start and end date objects
+    const startTime = new Date(selectedDate);
+    const [startHours, startMinutes] = selectedStartTime.split(':').map(Number);
+    startTime.setHours(startHours, startMinutes, 0, 0);
+
+    const endTime = new Date(selectedDate);
+    const [endHours, endMinutes] = selectedEndTime.split(':').map(Number);
+    endTime.setHours(endHours, endMinutes, 0, 0);
+
+    // Validate time selection
+    if (endTime <= startTime) {
+      alert('End time must be after start time.');
+      return;
+    }
+
+    // Check if booking is in the future
+    if (startTime <= new Date()) {
+      alert('Booking time must be in the future.');
+      return;
+    }
+
+    setBookingLoading(true);
     try {
-      if (!auth.currentUser) {
-        throw new Error('User not authenticated');
-      }
+      // Check for existing bookings on this date
+      const dailyBookingsResponse = await getDailyBookings(selectedDate.toISOString());
+      const existingBookings = dailyBookingsResponse.bookings || [];
 
-      // Reset messages
-      setBookingError('');
-      setBookingSuccess('');
-      setShowMembershipPrompt(false);
-
-      if (isMember === false) {
-        setBookingError('You must be an ACM member to book a meeting.');
-        setShowMembershipPrompt(true);
+      if (existingBookings.length > 0) {
+        alert('You already have a booking on this date. Only one booking per day is allowed.');
         return;
       }
 
-      // Validate booking times before proceeding
-      if (!(await validateBookingTimes())) {
-        return;
-      }
-
-      // add booking to database
-      await setDoc(doc(db, "bookings", auth.currentUser.uid + startTime.toDateString()), {
-        UID: auth.currentUser.uid,
-        start: Timestamp.fromDate(startTime),
-        end: Timestamp.fromDate(endTime)
+      // Create the booking
+      await createBooking({
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+        purpose: purpose
       });
 
-      setBookingSuccess('Room successfully booked!');
+      alert('Booking created successfully!');
+      
+      // Reset form
+      setSelectedDate(null);
+      setSelectedStartTime('');
+      setSelectedEndTime('');
+      setPurpose('');
+      
+      // Refresh weekly bookings
+      const response = await getWeeklyBookings();
+      const bookings = response.bookings || [];
+      const weekData: [Date, Date][] = bookings.map((booking: BookingData) => [
+        new Date(booking.start),
+        new Date(booking.end)
+      ]);
+      setWeek(weekData);
+      
     } catch (error) {
-      console.error('Error booking:', error);
-      setBookingError('Failed to create booking. Please try again.');
+      console.error('Error creating booking:', error);
+      alert(`Failed to create booking: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setBookingLoading(false);
     }
   };
 
-  const isTimeSlotBooked = (date: Date, hour: number, minute: number): boolean => {
-    const slotTime = new Date(date);
-    slotTime.setHours(hour, minute, 0, 0);
+  const isDateAvailable = (date: Date): boolean => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     
-    return week.some(([start, end]) => {
-      const slotStart = new Date(slotTime);
-      const slotEnd = new Date(slotTime);
-      slotEnd.setMinutes(slotEnd.getMinutes() + 30); // Each slot is 30 minutes
-      
-      return (
-        ((slotStart >= start && 
-        slotStart < end) || // Check if slot starts during a booking
-        (slotEnd > start &&
-        slotEnd <= end)) && // Check if slot ends during a booking
-        date.getDate() === start.getDate() && 
-        date.getMonth() === start.getMonth() && 
-        date.getFullYear() === start.getFullYear()
-      );
+    // Check if date is in the future
+    if (date < today) return false;
+    
+    // Check if there are any bookings on this date
+    return !week.some(([start, end]) => {
+      const bookingDate = new Date(start);
+      bookingDate.setHours(0, 0, 0, 0);
+      return bookingDate.getTime() === date.getTime();
     });
   };
 
+  const generateTimeSlots = (): string[] => {
+    const slots: string[] = [];
+    for (let hour = 9; hour <= 21; hour++) {
+      slots.push(`${hour.toString().padStart(2, '0')}:00`);
+      if (hour < 21) {
+        slots.push(`${hour.toString().padStart(2, '0')}:30`);
+      }
+    }
+    return slots;
+  };
+
+  const generateCalendar = (): React.JSX.Element[] => {
+    const today = new Date();
+    const days: React.JSX.Element[] = [];
+    
+    // Generate next 30 days
+    for (let i = 0; i < 30; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      
+      const available = isDateAvailable(date);
+      const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString();
+      
+      days.push(
+        <div
+          key={date.toDateString()}
+          className={`calendar-day ${available ? 'available' : 'unavailable'} ${isSelected ? 'selected' : ''}`}
+          onClick={() => available && handleDateSelect(date)}
+        >
+          <div className="day-number">{date.getDate()}</div>
+          <div className="day-name">{date.toLocaleDateString('en-US', { weekday: 'short' })}</div>
+          <div className="day-month">{date.toLocaleDateString('en-US', { month: 'short' })}</div>
+        </div>
+      );
+    }
+    
+    return days;
+  };
+
+  if (loading) {
+    return (
+      <div className="booking-page">
+        <div className="booking-container">
+          <h1>Loading...</h1>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="booking-page">
+        <div className="booking-container">
+          <div className="booking-header">
+            <h1>ACM Lounge Booking</h1>
+            <p>Please log in to book the ACM lounge.</p>
+          </div>
+          <button 
+            className="login-button"
+            onClick={() => navigateTo('login', 'Please log in to book the lounge')}
+          >
+            Log In
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isMember) {
+    return (
+      <div className="booking-page">
+        <div className="booking-container">
+          <div className="booking-header">
+            <h1>ACM Lounge Booking</h1>
+            <p>Only ACM members can book the lounge. Please join ACM first.</p>
+          </div>
+          <button 
+            className="join-button"
+            onClick={() => navigateTo('profile', 'Please join ACM to book the lounge')}
+          >
+            Join ACM
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="booking-page">
-      <div className="booking-layout">
-        <div className="page-header">
-          <h1 className="page-title">Room Booking</h1>
-          <p className="page-subtitle">Schedule a time to use the ACM Lounge in Malone Hall</p>
+      <div className="booking-container">
+        <div className="booking-header">
+          <h1>ACM Lounge Booking</h1>
+          <p>Book the ACM lounge for your projects, study sessions, or meetings.</p>
         </div>
 
         {error && (
-          <div className="booking-section error-section">
-            <div className="error-message">{error}</div>
+          <div className="error-message">
+            {error}
           </div>
         )}
 
         <div className="booking-content">
-          <div className="booking-section time-selection-section">
-            <TimeSelection
-              dates={dates}
-              startTime={startTime}
-              endTime={endTime}
-              timeSlots={timeSlots}
-              bookingError={bookingError}
-              bookingSuccess={bookingSuccess}
-              showMembershipPrompt={showMembershipPrompt}
-              onDateChange={handleDateChange}
-              onStartTimeChange={handleStartTimeChange}
-              onEndTimeChange={handleEndTimeChange}
-              onBooking={handleBooking}
-              navigateTo={navigateTo}
-              formatDate={formatDate}
-            />
-          </div>
+          <section className="calendar-section">
+            <h2>Select a Date</h2>
+            <div className="calendar-grid">
+              {generateCalendar()}
+            </div>
+            <div className="calendar-legend">
+              <div className="legend-item">
+                <div className="legend-color available"></div>
+                <span>Available</span>
+              </div>
+              <div className="legend-item">
+                <div className="legend-color unavailable"></div>
+                <span>Unavailable</span>
+              </div>
+            </div>
+          </section>
 
-          <div className="booking-section calendar-section">
-            <CalendarView
-              dates={dates}
-              isTimeSlotBooked={isTimeSlotBooked}
-              formatDate={formatDate}
-            />
-          </div>
+          {selectedDate && (
+            <section className="time-section">
+              <h2>Select Time for {selectedDate.toLocaleDateString()}</h2>
+              <div className="time-inputs">
+                <div className="time-input-group">
+                  <label>Start Time:</label>
+                  <select
+                    value={selectedStartTime}
+                    onChange={(e) => setSelectedStartTime(e.target.value)}
+                  >
+                    <option value="">Select start time</option>
+                    {generateTimeSlots().map(time => (
+                      <option key={time} value={time}>{time}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="time-input-group">
+                  <label>End Time:</label>
+                  <select
+                    value={selectedEndTime}
+                    onChange={(e) => setSelectedEndTime(e.target.value)}
+                  >
+                    <option value="">Select end time</option>
+                    {generateTimeSlots().map(time => (
+                      <option key={time} value={time}>{time}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="purpose-input">
+                <label>Purpose (optional):</label>
+                <textarea
+                  value={purpose}
+                  onChange={(e) => setPurpose(e.target.value)}
+                  placeholder="What will you be using the lounge for?"
+                  rows={3}
+                />
+              </div>
+            </section>
+          )}
+
+          {selectedDate && selectedStartTime && selectedEndTime && (
+            <section className="booking-summary">
+              <h2>Booking Summary</h2>
+              <div className="summary-details">
+                <p><strong>Date:</strong> {selectedDate.toLocaleDateString()}</p>
+                <p><strong>Time:</strong> {selectedStartTime} - {selectedEndTime}</p>
+                {purpose && <p><strong>Purpose:</strong> {purpose}</p>}
+              </div>
+              <button
+                className="book-button"
+                onClick={handleBooking}
+                disabled={bookingLoading}
+              >
+                {bookingLoading ? 'Creating Booking...' : 'Book Lounge'}
+              </button>
+            </section>
+          )}
         </div>
+
+        <section className="booking-info">
+          <h2>Booking Information</h2>
+          <ul>
+            <li>Only ACM members can book the lounge</li>
+            <li>One booking per day per member</li>
+            <li>Bookings are available from 9:00 AM to 9:30 PM</li>
+            <li>Please cancel your booking if you won't be using the lounge</li>
+            <li>Respect the space and clean up after yourself</li>
+          </ul>
+        </section>
       </div>
     </div>
   );
